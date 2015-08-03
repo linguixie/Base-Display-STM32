@@ -55,9 +55,6 @@ void LedOn(int LedIndex)
 {
     switch(LedIndex)
     {
-    case LED_ERROR:
-        Led_ErrorSet();
-        break;
     case LED_SHUTLIMIT:    
         Led_ShutLimitSet();     
         break;
@@ -81,9 +78,6 @@ void LedOff(int LedIndex)
 {
     switch(LedIndex)
     {
-    case LED_ERROR:
-        Led_ErrorClr();
-        break;
     case LED_SHUTLIMIT:    
         Led_ShutLimitClr();     
         break;

@@ -27,9 +27,9 @@
 
  //-红外帧延时间(单位:毫秒)-
 #define InfraredFrameTime          100       
-#define InfraredFrameDelay         (Division(InfraredFrameTime, Delay_2MiliSecond_Factor))
+#define InfraredFrameDelay         (Division(InfraredFrameTime, Delay_MiliSecond_Factor))
 #define InfraredIdleTime           160
-#define InfraredIdleDelay          (Division(InfraredIdleTime, Delay_2MiliSecond_Factor))
+#define InfraredIdleDelay          (Division(InfraredIdleTime, Delay_MiliSecond_Factor))
 /*******************************************************************************
 *                                 全局函数(变量)声明
 ********************************************************************************/
@@ -325,15 +325,16 @@ void InfraredRecv_EXTI_IRQHandler(void)
                     PulseWidth[g_PulseWidthIndex++] = 0;
                 }
             }
+            /*-如下if条件是为了实现:遥控器一直按压时红外码字一直有效-*/
             else if (TimeElapsed > 230)
             {
-            Count++;
-            g_InfraredRecving = 1;
-            g_PulseWidthIndex = 0;
-
-            StartInfraredRecv();
-            //-首次根据波形图可以得知是0-
-            PulseWidth[g_PulseWidthIndex++] = 0;
+                Count++;
+                g_InfraredRecving = 1;
+                g_PulseWidthIndex = 0;
+    
+                StartInfraredRecv();
+                //-首次根据波形图可以得知是0-
+                PulseWidth[g_PulseWidthIndex++] = 0;
             }
             if (g_PulseWidthIndex == Edge_Num)
             {

@@ -27,8 +27,8 @@ extern "C" {
 *                                  宏  定  义
 ********************************************************************************/ 
 //-既包括主板上的按键也包含了遥控器的按键-
-typedef enum {Key_Remote, Key_Local, Key_Next, Key_OK, Key_ESC, KeyOnBoard_Num, 
-              Key_Open = KeyOnBoard_Num, Key_Shut, Key_Set, Key_Back, Key_Up, Key_Down, Key_Num}Key_Enum;
+typedef enum {Key_Remote, Key_Local, Key_Open, Key_Shut, KeyOnBoard_Num, 
+              Key_Inc = KeyOnBoard_Num, Key_Dec, Key_Set, Key_Back, Key_Up, Key_Down, Key_Num}Key_Enum;
 
 //-按键总数-
 #define KEY_MAX_NUM                     KeyOnBoard_Num

@@ -8,7 +8,7 @@
 * 修 改 者:
 * 修改时间:
 * 修改说明:
-* 其    他：
+* 其    他：此源文件中处理非菜单页面下的按键处理.菜单页面下的按键处理请参见Display.c
 ********************************************************************************/
 /*******************************************************************************
 *                                    头  文  件
@@ -59,32 +59,73 @@ void ModeSwitch(void)
 *******************************************************************************/
 void LocalCheck(void)
 {
-    static unsigned char PreControlMode = 0;
-    unsigned char ControlModeChanged = 0;
+    static signed char Count_H = 10;
+    static signed char Count_L = 10;
 
-    if (PreControlMode != Device.Mode.ControlMode)
+    if((KeyStateRead(Key_Local) == KEY_PRESSED))        
     {
-        PreControlMode = Device.Mode.ControlMode;
-        ControlModeChanged = 1;
-    }
+        Count_L = 10;
 
-    if(KeyPressed[Key_Local] == KEY_PRESSED)        
-    {
-        EnterMenu(0);
-        Device.Mode.ControlModeBits.Local = 1;
-
-        if (ControlModeChanged == 1)
+        if (Device.Input.Local == True)
         {
-             ModeSwitch();
+            return;
         }
+        if (--Count_H <= 0)
+        {
+            Device.Input.Local = True;
+
+            if (IsInMenu() == 1)
+            {
+                switch(PageFunctionIndex)
+                {
+                case Page_AdjustZero_ID:
+                case Page_AdjustFull_ID:
+                case Page_DeadZone_ID:
+                case Page_AdjustOutput4mA_ID:
+                case Page_AdjustOutput20mA_ID:
+                case Page_ShutCurrent_ID:
+                case Page_OpenCurrent_ID:
+                case Page_MaxActionTime_ID:
+                
+                    Device.Flag.FlagBits.IsInLocalAdjust = 1;
+                    break;
+                default:
+                    Device.CommMode.CommModeBits.Local = 1;
+                    ModeSwitch();
+                    EnterMenu(0);
+                    break;
+                }
+            }
+            else
+            {
+                Device.CommMode.CommModeBits.Local = 1;
+                ModeSwitch();
+                EnterMenu(0);
+            }
+        }
+
     }
     else
     {
-        Device.Mode.ControlModeBits.Local = 0;
+        Count_H = 10;
 
-        if ((Device.Mode.ControlModeBits.Remote == 0) && (Device.Mode.ControlModeBits.Local == 0))
+        if (Device.Input.Local == False)
         {
-            EnterMenu(1);
+            return;
+        }
+        if (--Count_L <= 0)
+        {
+            Device.Input.Local = False;
+
+            if (Device.Flag.FlagBits.IsInLocalAdjust == 1)
+            {
+                Device.Flag.FlagBits.IsInLocalAdjust = 0;
+            }
+            else
+            {
+                Device.CommMode.CommModeBits.Local = 0;
+                ModeSwitch();
+            }
         }
     }
 }
@@ -99,32 +140,42 @@ void LocalCheck(void)
 *******************************************************************************/
 void RemoteCheck(void)
 {
-    static unsigned char PreControlMode = 0;
-    unsigned char ControlModeChanged = 0;
+    static signed char Count_H = 10;
+    static signed char Count_L = 10;
 
-    if (PreControlMode != Device.Mode.ControlMode)
+    if((KeyStateRead(Key_Remote) == KEY_PRESSED))        
     {
-        PreControlMode = Device.Mode.ControlMode;
-        ControlModeChanged = 1;
-    }
+        Count_L = 10;
 
-    if(KeyPressed[Key_Remote] == KEY_PRESSED)        
-    {
-        EnterMenu(0);
-        Device.Mode.ControlModeBits.Remote = 1;
-
-        if (ControlModeChanged == 1)
+        if (Device.Input.Remote == True)
         {
-            ModeSwitch();
+            return;
         }
+        if (--Count_H <= 0)
+        {
+            Device.Input.Remote = True;
+
+            Device.CommMode.CommModeBits.Remote = 1;
+            ModeSwitch();
+
+            EnterMenu(0);
+        }
+
     }
     else
     {
-        Device.Mode.ControlModeBits.Remote = 0;
+        Count_H = 10;
 
-        if ((Device.Mode.ControlModeBits.Remote == 0) && (Device.Mode.ControlModeBits.Local == 0))
+        if (Device.Input.Remote == False)
         {
-            EnterMenu(1);
+            return;
+        }
+        if (--Count_L <= 0)
+        {
+            Device.Input.Remote = False;
+
+            Device.CommMode.CommModeBits.Remote = 0;
+            ModeSwitch();
         }
     }
 }
@@ -139,24 +190,24 @@ void RemoteCheck(void)
 *******************************************************************************/
 void OpenCheck(void)
 {
-    static signed char Count_H = 0;
-    static signed char Count_L = 0;
+    static signed char Count_H = 10;
+    static signed char Count_L = 10;
 
     if (IsInMenu() == 0)
     {
-        if (Device.Mode.ControlModeBits.Local == 1)
+        if (Device.CommMode.CommModeBits.Local == 1)
         {
-            if((KeyStateRead(Key_ESC) == KEY_PRESSED) || (KeyStateRead(Key_Open) == KEY_PRESSED))        
+            if((KeyStateRead(Key_Open) == KEY_PRESSED) || (KeyStateRead(Key_Inc) == KEY_PRESSED))        
             {
                 Count_L = 10;
 
-                if (Device.Input.Open == True)
+                if (Device.Input.LocalOpen == True)
                 {
                     return;
                 }
                 if (--Count_H <= 0)
                 {
-                    Device.Input.Open = True;
+                    Device.Input.LocalOpen = True;
                 }
 
             }
@@ -164,13 +215,13 @@ void OpenCheck(void)
             {
                 Count_H = 10;
 
-                if (Device.Input.Open == False)
+                if (Device.Input.LocalOpen == False)
                 {
                     return;
                 }
                 if (--Count_L <= 0)
                 {
-                    Device.Input.Open = False;
+                    Device.Input.LocalOpen = False;
                 }
             }
         }
@@ -187,24 +238,24 @@ void OpenCheck(void)
 *******************************************************************************/
 void ShutCheck(void)
 {
-    static signed char Count_H = 0;
-    static signed char Count_L = 0;
+    static signed char Count_H = 10;
+    static signed char Count_L = 10;
 
     if (IsInMenu() == 0)
     {
-        if (Device.Mode.ControlModeBits.Local == 1)
+        if (Device.CommMode.CommModeBits.Local == 1)
         {
-            if((KeyStateRead(Key_Next) == KEY_PRESSED) || (KeyStateRead(Key_Shut) == KEY_PRESSED))        
+            if((KeyStateRead(Key_Shut) == KEY_PRESSED) || (KeyStateRead(Key_Dec) == KEY_PRESSED))        
             {
                 Count_L = 10;
 
-                if (Device.Input.Shut == True)
+                if (Device.Input.LocalShut == True)
                 {
                     return;
                 }
                 if (--Count_H <= 0)
                 {
-                    Device.Input.Shut = True;
+                    Device.Input.LocalShut = True;
                 }
 
             }
@@ -212,13 +263,13 @@ void ShutCheck(void)
             {
                 Count_H = 10;
 
-                if (Device.Input.Shut == False)
+                if (Device.Input.LocalShut == False)
                 {
                     return;
                 }
                 if (--Count_L <= 0)
                 {
-                    Device.Input.Shut = False;
+                    Device.Input.LocalShut = False;
                 }
             }
         }
@@ -235,24 +286,24 @@ void ShutCheck(void)
 *******************************************************************************/
 void StopCheck(void)
 {
-    static signed char Count_H = 0;
-    static signed char Count_L = 0;
+    static signed char Count_H = 10;
+    static signed char Count_L = 10;
 
     if (IsInMenu() == 0)
     {
-        if (Device.Mode.ControlModeBits.Local == 1)
+        if (Device.CommMode.CommModeBits.Local == 1)
         {
-            if(KeyStateRead(Key_OK) == KEY_PRESSED)        
+            if(KeyStateRead(Key_Back) == KEY_PRESSED)        
             {
                 Count_L = 10;
 
-                if (Device.Input.Stop == True)
+                if (Device.Input.LocalStop == True)
                 {
                     return;
                 }
                 if (--Count_H <= 0)
                 {
-                    Device.Input.Stop = True;
+                    Device.Input.LocalStop = True;
                 }
 
             }
@@ -260,13 +311,13 @@ void StopCheck(void)
             {
                 Count_H = 10;
 
-                if (Device.Input.Stop == False)
+                if (Device.Input.LocalStop == False)
                 {
                     return;
                 }
                 if (--Count_L <= 0)
                 {
-                    Device.Input.Stop = False;
+                    Device.Input.LocalStop = False;
                 }
             }
         }
@@ -310,21 +361,23 @@ void Task_Input(void)
     case 0:
         LocalCheck();        //-必须首先判断现场还是远程-
         RemoteCheck();
+        break;
+    case 1:
         OpenCheck();
         ShutCheck();
         StopCheck();
 
         if (IsInMenu() == 0)
         {
-            if (Device.Input.Open == True)
+            if (Device.Input.LocalOpen == True)
             {
                 Valve.Operation.Operation = Operation_Open;
             }
-            else if (Device.Input.Shut == True)
+            else if (Device.Input.LocalShut == True)
             {
                 Valve.Operation.Operation = Operation_Shut;
             }
-            else if (Device.Input.Stop == True)
+            else if (Device.Input.LocalStop == True)
             {
                 if (Valve.Status.StatusBits.Opening == 1)
                 {

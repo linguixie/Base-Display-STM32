@@ -7,7 +7,7 @@
 
   <Targets>
     <Target>
-      <TargetName>NonInvasiveDZW</TargetName>
+      <TargetName>Z-Display</TargetName>
       <ToolsetNumber>0x4</ToolsetNumber>
       <ToolsetName>ARM-ADS</ToolsetName>
       <TargetOption>
@@ -47,7 +47,7 @@
             <InvalidFlash>1</InvalidFlash>
           </TargetStatus>
           <OutputDirectory>.\Objects\</OutputDirectory>
-          <OutputName>NonInvasiveDZW</OutputName>
+          <OutputName>Z-Display</OutputName>
           <CreateExecutable>1</CreateExecutable>
           <CreateLib>0</CreateLib>
           <CreateHexFile>1</CreateHexFile>
@@ -137,7 +137,7 @@
           <Target>
             <UseTarget>1</UseTarget>
             <LoadApplicationAtStartup>1</LoadApplicationAtStartup>
-            <RunToMain>0</RunToMain>
+            <RunToMain>1</RunToMain>
             <RestoreBreakpoints>1</RestoreBreakpoints>
             <RestoreWatchpoints>1</RestoreWatchpoints>
             <RestoreMemoryDisplay>1</RestoreMemoryDisplay>
@@ -365,7 +365,7 @@
               <MiscControls></MiscControls>
               <Define>STM32F030, USE_STDPERIPH_DRIVER</Define>
               <Undefine></Undefine>
-              <IncludePath>..\Lib\STM32F0xx_StdPeriph_Lib_V1.3.1\Libraries\STM32F0xx_StdPeriph_Driver\inc;..\Lib\STM32F0xx_StdPeriph_Lib_V1.3.1\Libraries\CMSIS\Device\ST\STM32F0xx\Include;..\Lib\STM32F0xx_StdPeriph_Lib_V1.3.1\Libraries\CMSIS\Include;..\Lib;..\HAL_Driver\SysTick;..\HAL_Driver\GPIO;..\HAL_Driver\Buzzer;..\HAL_Driver\Led;..\HAL_Driver\Key;..\HAL_Driver\OLED;..\HAL_Driver\Infrared;..\HAL_Driver\EEPROM;..\HAL_Driver\Watchdog;..\Config;..\Platform\UI;..\Platform\SoftTimer;..\Platform\Valve;..\Platform\Math;..\Application\Display;..\Application\Output;..\Application\Main;..\Application\Communication;..\Application\Input;..\Includes</IncludePath>
+              <IncludePath>..\Lib\STM32F0xx_StdPeriph_Lib_V1.3.1\Libraries\STM32F0xx_StdPeriph_Driver\inc;..\Lib\STM32F0xx_StdPeriph_Lib_V1.3.1\Libraries\CMSIS\Device\ST\STM32F0xx\Include;..\Lib\STM32F0xx_StdPeriph_Lib_V1.3.1\Libraries\CMSIS\Include;..\Lib;..\HAL_Driver\SysTick;..\HAL_Driver\GPIO;..\HAL_Driver\Buzzer;..\HAL_Driver\Led;..\HAL_Driver\Key;..\HAL_Driver\Lcd;..\HAL_Driver\Infrared;..\HAL_Driver\EEPROM;..\HAL_Driver\Watchdog;..\Config;..\Platform\UI;..\Platform\SoftTimer;..\Platform\Valve;..\Platform\Math;..\Application\Display;..\Application\Output;..\Application\Main;..\Application\Communication;..\Application\Input;..\Includes</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -442,11 +442,6 @@
           <GroupName>HAL_Driver</GroupName>
           <Files>
             <File>
-              <FileName>OLed.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\HAL_Driver\OLED\OLed.c</FilePath>
-            </File>
-            <File>
               <FileName>Led.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\HAL_Driver\LED\Led.c</FilePath>
@@ -485,6 +480,11 @@
               <FileName>Watchdog.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\HAL_Driver\Watchdog\Watchdog.c</FilePath>
+            </File>
+            <File>
+              <FileName>Lcd.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\HAL_Driver\Lcd\Lcd.c</FilePath>
             </File>
           </Files>
         </Group>

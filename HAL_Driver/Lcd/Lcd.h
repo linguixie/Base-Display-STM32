@@ -1,10 +1,10 @@
 /*******************************************************************************
-* Copyright (c) 2015,威鹏自动化科技有限公司
+* Copyright (c) 2015,xxx公司
  *            All rights reserved.
 * 程序名称：
 * 版 本 号：1.0
 * 开 发 人：谢林贵
-* 开发时间：2015-6-4
+* 开发时间：2015-3-16
 * 修 改 者:
 * 修改时间:
 * 修改说明:
@@ -12,8 +12,8 @@
 ********************************************************************************/
  
  
-#ifndef _OLED_H_
-#define _OLED_H_
+#ifndef _LCD_H_
+#define _LCD_H_
  
 #ifdef __cplusplus
 extern "C" {
@@ -22,7 +22,7 @@ extern "C" {
 /*******************************************************************************
 *                                  头  文  件
 ********************************************************************************/
- 
+#include "GPIO.h"
  
 /*******************************************************************************
 *                                  宏  定  义
@@ -65,22 +65,22 @@ extern "C" {
 ********************************************************************************/
 extern unsigned char SpecicalCharacter[11][4][16];
 extern unsigned char g_DisplayBuf[Display_Buf_Size];
- 
+
 /*******************************************************************************
 *                                  全局函数声明
 ********************************************************************************/
-void OLedInit(void);
-void OLED_Reset(void);
-void OLED_Refresh(int CharacterLineIndex);
-void GetDotData(unsigned int Code, unsigned char CharacterType, unsigned char *FontBuf, unsigned char *FontBufLen);
+void LcdInit(void);
+void LcdReset(void);
+void ClearScreen(void);
+void LcdGPIOInit(void);
+void LcdRefresh(int CharacterLineIndex);
 void SwapFontBuf2DisplayBuf(unsigned char *FontBuf, unsigned FontBufLen, unsigned char *DisplayBuf, int DisplayBufStartIndex);
-void OLED_ShowString(unsigned  char x, unsigned char y, unsigned char *chr);
- 
+void GetDotData(unsigned int Code, unsigned char CharacterType, unsigned char *FontBuf, unsigned char *FontBufLen);
 #ifdef __cplusplus
 }
 #endif
  
-#endif /* _OLED_H_ */
+#endif /* _LCD_H_ */
  
  
 /*************************************END OF FILE*******************************/

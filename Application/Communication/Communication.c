@@ -24,17 +24,17 @@
 /*******************************************************************************
 *                               文件内部使用宏定义
 ********************************************************************************/
-#define COMM_CLK_H()             COMM_CLKSet()
-#define COMM_CLK_L()             COMM_CLKClr()
-#define COMM_CLK_Get()           COMM_CLKGet()
+#define COMM_CLK_L()             COMM_CLKSet()
+#define COMM_CLK_H()             COMM_CLKClr()
+#define COMM_CLK_Get()           (!COMM_CLKGet())
 
-#define COMM_CS_H()              COMM_CSSet()
-#define COMM_CS_L()              COMM_CSClr()
+#define COMM_CS_L()              COMM_CSSet()
+#define COMM_CS_H()              COMM_CSClr()
 
-#define COMM_MOSI_H()            COMM_MOSISet()
-#define COMM_MOSI_L()            COMM_MOSIClr()
+#define COMM_MOSI_L()            COMM_MOSISet()
+#define COMM_MOSI_H()            COMM_MOSIClr()
 
-#define COMM_MISO_Get()          COMM_MISOGet()
+#define COMM_MISO_Get()          (!COMM_MISOGet())
 
 /*******************************************************************************
 *                                 全局函数(变量)声明
@@ -189,7 +189,7 @@ void CommTimerIRQHander(void)
     else if (ClockCount == 161)
     {
         COMM_CS_H();
-        //COMM_CLK = 1;
+        //COMM_CLK_H();
     }
     else if(ClockCount == 255)
     {
@@ -324,11 +324,11 @@ void MakeNormalFrame(void)
     /*----------------组帧(根据实际应用,只需修改以下)-------------------------*/
     Index = 1;
 
-    if (Device.Mode.ControlModeBits.Remote == 1)
+    if (Device.CommMode.CommModeBits.Remote == 1)
     {
         Command |= 0x80;
     }
-    else if (Device.Mode.ControlModeBits.Local == 1)
+    else if (Device.CommMode.CommModeBits.Local == 1)
     {
         Command |= 0x40;
     }
@@ -499,6 +499,7 @@ void MakeSettingFrame(void)
     }
 
 
+    //-故障反馈触点-
     if (Device.Para.ErrorFeedBack == IO_NormallyShut)
     {
         LocalMode |= 1 << 3;
@@ -509,46 +510,52 @@ void MakeSettingFrame(void)
     }
 
 
+    //-ESD-
     switch(Device.Para.ESDMode)
     {
-    case ESD_Disable:
+    case ESDMode_Disable:
         ESDMode = 0;
         break;
-    case ESD_NoAction:
+    case ESDMode_NoAction:
         ESDMode = 1;
         break;
-    case ESD_Shut:
+    case ESDMode_Shut:
         ESDMode = 2;
         break;
-    case ESD_Open:
+    case ESDMode_Open:
         ESDMode = 3;
         break;
-    case ESD_Middle:
+    case ESDMode_Middle:
         ESDMode = 4;
         break;
     default:
         break;
     }
+    if (Device.Para.ESDDisplayEnable == ESDDisplay_Enable)
+    {
+        ESDMode |= 0x80;
+    }
+    else
+    {
+        ESDMode &= 0x7F;
+    }
 
     LocalMode &= 0x0F;
-    ESDMode &= 0x07;
+    ESDMode &= 0x0F;
     LocalMode = (ESDMode << 4) + LocalMode;
     SendBuf[Index++] = LocalMode;
 
+    //--
     switch(Device.Para.RemoteIOMode)
     {
     case RemoteIOMode_Jog:
         RemoteIOMode = 0;
         break;
-    case RemoteIOMode_Hold:
-        if (Device.Para.RemoteHold == IO_NormallyOpen)
-        {
-            RemoteIOMode = 1;
-        }
-        else
-        {
-            RemoteIOMode = 2;
-        }
+    case RemoteIOMode_HoldNormallyOpen:
+        RemoteIOMode = 1;
+        break;
+    case RemoteIOMode_HoldNormallyShut:
+        RemoteIOMode = 2;
         break;
     case RemoteIOMode_SignalOnNoOff:
         RemoteIOMode = 3;
@@ -564,9 +571,6 @@ void MakeSettingFrame(void)
 
     switch(Device.Para.RemoteANMode)
     {
-    case RemoteANMode_Invalid:
-        RemoteANMode = 0;
-        break;
     case RemoteANMode_NoSigKeep:
         RemoteANMode = 0;
         break;
@@ -617,7 +621,6 @@ void MakeExtraSettingFrame(void)
 *******************************************************************************/
 void NormalFrameDeal(void)
 {
-{
     int RecvBufIndex = 0;
  
     unsigned int TmpData = 0;
@@ -652,55 +655,99 @@ void NormalFrameDeal(void)
     }
     RecvBufIndex++;
 
-#if 0
-    Device.Mode.ControlMode = 0x00;
+    Device.WorkMode.CurWorkMode = 0x00;
     switch(RecvBuf[RecvBufIndex])
     {
     case 0x00:
-        Device.Mode.ControlModeBits.Bus = 1;
+        Device.CommMode.CommModeBits.Bus = 1;
+        Device.WorkMode.CurWorkMode = WorkMode_Bus;
         break;
     case 0x01:
-        Device.Mode.ControlModeBits.Analog = 1;
+        Device.CommMode.CommModeBits.Remote = 1;
+        Device.WorkMode.CurWorkMode = WorkMode_RemoteAN;
         break;
     case 0x02:
-        Device.Para.RemoteIOMode = RemoteIOMode_Jog;
+        Device.CommMode.CommModeBits.Remote = 1;
+        Device.WorkMode.CurWorkMode = WorkMode_RemoteJog;
         break;
     case 0x03:
-        Device.Para.RemoteIOMode = RemoteIOMode_Hold;
+        Device.CommMode.CommModeBits.Remote = 1;
+        Device.WorkMode.CurWorkMode = WorkMode_RemoteHold;
         break;
     case 0x04:
-        Device.Para.RemoteIOMode = RemoteIOMode_BiPos;
+        Device.CommMode.CommModeBits.Remote = 1;
+        Device.WorkMode.CurWorkMode = WorkMode_RemoteDibit;
         break;
     case 0x05:
-        Device.Para.LocalMode = LocalMode_Jog;
+        Device.CommMode.CommModeBits.Local = 1;
+        Device.WorkMode.CurWorkMode = WorkMode_LocalJog;
         break;
     case 0x06:
-        Device.Para.LocalMode = LocalMode_Hold;
+        Device.CommMode.CommModeBits.Local = 1;
+        Device.WorkMode.CurWorkMode = WorkMode_LocalHold;
         break;
     case 0x07:
+        Device.WorkMode.CurWorkMode = WorkMode_Stop;
         break;
     default:
         break;
     } 
+
+    //-手轮手动检测-
+    if (RecvBuf[RecvBufIndex] & 0x80)
+    {
+        Device.CommMode.CommModeBits.Manual = 1;
+    }
+    else
+    {
+        Device.CommMode.CommModeBits.Manual = 0;
+    }
+    //-ESD状态检测-
+    if (RecvBuf[RecvBufIndex] & 0x40)
+    {
+        Device.Status.ESDStatus = ESDStatus_Valid;
+    }
+    else
+    {
+        Device.Status.ESDStatus = ESDStatus_Invalid;
+    }
+    //-电流小数点-
+    if (RecvBuf[RecvBufIndex] & 0x20)
+    {
+        Device.Para.CurrentDecimalBits = CurrentDecimalBits_Two;
+    }
+    else
+    {
+        Device.Para.CurrentDecimalBits = CurrentDecimalBits_One;
+    }
     RecvBufIndex++;
-#endif
-    Device.Status.CurMode = RecvBuf[RecvBufIndex++];
 
-
+    //-当前状态信息-
     if ((RecvBuf[RecvBufIndex] & 0x80) != 0)
     {
-        Device.Mode.ControlModeBits.Remote = 1;
+        Device.CommMode.CommModeBits.Remote = 1;
     }
     else if ((RecvBuf[RecvBufIndex] & 0x40) != 0)
     {
-        Device.Mode.ControlModeBits.Local = 1;
+        Device.CommMode.CommModeBits.Local = 1;
     }
     Valve.Status.StatusByte = RecvBuf[RecvBufIndex] & 0x3F;
     RecvBufIndex++;
 
+    //-Error-
     Device.Error.ErrorByte = RecvBuf[RecvBufIndex++];
     Valve.Error.ErrorByte = RecvBuf[RecvBufIndex++];
-}
+
+    //-大于250则不显示当前电流-
+    if (RecvBuf[RecvBufIndex] > 250)
+    { 
+        Device.Para.CurrentDisplayEnable = CurrentDisplay_Disable;
+    }
+    else
+    {
+        Device.Para.CurrentDisplayEnable = CurrentDisplay_Enable;
+        Valve.MiscInfo.Current = RecvBuf[RecvBufIndex++];
+    }
 }
 
 
@@ -741,8 +788,8 @@ void AdjustFrameDeal(void)
     ValvePositionADValue <<= 8;
     ValvePositionADValue += RecvBuf[2];
 
-    Valve.MiscInfo.PositionADValue = ValvePositionADValue;
-    Valve.MiscInfo.In4_20mA = RecvBuf[4];
+    Valve.MiscInfo.PositionValue = ValvePositionADValue;
+    Valve.MiscInfo.In4_20mAADValue = RecvBuf[4];
 }
 
 
@@ -808,28 +855,28 @@ void SettingFrameDeal(void)
     //-ESD-
     if (RecvBuf[RecvBufIndex] & 0x80)
     {
-        Device.Status.ESDStatus = ESD_Valid;
+        Device.Para.ESDDisplayEnable = ESDDisplay_Enable;
     }
     else
     {
-        Device.Status.ESDStatus = ESD_Invalid;
+        Device.Para.ESDDisplayEnable = ESDDisplay_Disable;;
     }
     switch((RecvBuf[RecvBufIndex]   & 0x70) >> 4)
     {
     case 0:
-        Device.Para.ESDMode = ESD_Disable;
+        Device.Para.ESDMode = ESDMode_Disable;
         break;
     case 1:
-        Device.Para.ESDMode = ESD_NoAction;
+        Device.Para.ESDMode = ESDMode_NoAction;
         break;
     case 2:
-        Device.Para.ESDMode = ESD_Shut;
+        Device.Para.ESDMode = ESDMode_Shut;
         break;
     case 3:
-        Device.Para.ESDMode = ESD_Open;
+        Device.Para.ESDMode = ESDMode_Open;
         break;
     case 4:
-        Device.Para.ESDMode = ESD_Middle;
+        Device.Para.ESDMode = ESDMode_Middle;
         break;
     default:
         break;
@@ -837,20 +884,25 @@ void SettingFrameDeal(void)
     RecvBufIndex++;
 
 
-    //-存在的隐患:如果面板上传的模式为非保持,那么保持是否常开还是常闭不确定.-
-    if (RecvBuf[RecvBufIndex] == 1)
+    switch(RecvBuf[RecvBufIndex])
     {
-        Device.Para.RemoteHold = IO_NormallyOpen;
-        Device.Para.RemoteIOMode = RemoteIOMode_Hold;
-    }
-    else if (RecvBuf[RecvBufIndex] == 2)
-    {
-        Device.Para.RemoteHold = IO_NormallyShut;
-        Device.Para.RemoteIOMode = RemoteIOMode_Hold;
-    }
-    else
-    {
-        Device.Para.RemoteIOMode = RecvBuf[RecvBufIndex];
+    case 0:
+        Device.Para.RemoteIOMode = RemoteIOMode_Jog;
+        break;
+    case 1:
+        Device.Para.RemoteIOMode = RemoteIOMode_HoldNormallyOpen;
+        break;
+    case 2:
+        Device.Para.RemoteIOMode = RemoteIOMode_HoldNormallyShut;
+        break;
+    case 3:
+        Device.Para.RemoteIOMode = RemoteIOMode_SignalOnNoOff;
+        break;
+    case 4:
+        Device.Para.RemoteIOMode = RemoteIOMode_SignalOffNoOn;
+        break;
+    default:
+        break;
     }
     RecvBufIndex++;
     
@@ -900,18 +952,64 @@ void ExtraSettingFrameDeal(void)
 * 输出参数:    无
 * 返 回 值:    无
 *******************************************************************************/
-void GetMultiplexFrameTypeStatus(volatile unsigned char *RegularFrame, volatile unsigned char *ExtraFrame)
+void WaitForAdjustFrame(void)
 {
-#if 0
-    if ((F_RegularFrameSending == 0) && (F_ExtraFrameSending == 0))
+    if (F_WaitAdjustFrame == 1)    //--
     {
-        F_ExtraFrameSending = 1;
+        if ((IsTimeOut(WaitReplyTimer) == 1))
+        {
+            F_WaitAdjustFrame = 0;
+    
+            if (CurrentAdjustType == Frame_AdjustZero)
+            {
+                if (Valve.AdjustInfo.AdjustInfoBits.Zero == 1)
+                {
+                    Show_Page(Page_AdjustZeroInfo_ID);
+                    SetTimer(AdjustInfoTimer, AdjustInfo_Delay);
+                }
+                else
+                {
+                    Show_Page(Page_MainMenu_ID);
+                }
+            }
+            if (CurrentAdjustType == Frame_AdjustFull)
+            {
+                if (Valve.AdjustInfo.AdjustInfoBits.Full == 1)
+                {
+                    Show_Page(Page_AdjustFullInfo_ID);
+                    SetTimer(AdjustInfoTimer, AdjustInfo_Delay);
+                }
+                else
+                {
+                    Show_Page(Page_MainMenu_ID);
+                }
+            }
+            if (CurrentAdjustType == Frame_AdjustInput4mA)
+            {
+                if (Valve.AdjustInfo.AdjustInfoBits.Input4mA == 1)
+                {
+                    Show_Page(Page_AdjustInput4mAInfo_ID);
+                    SetTimer(AdjustInfoTimer, AdjustInfo_Delay);
+                }
+                else
+                {
+                    Show_Page(Page_InternalPara_ID);
+                }
+            }
+            if (CurrentAdjustType == Frame_AdjustInput20mA)
+            {
+                if (Valve.AdjustInfo.AdjustInfoBits.Input20mA == 1)
+                {
+                    Show_Page(Page_AdjustInput20mAInfo_ID);
+                    SetTimer(AdjustInfoTimer, AdjustInfo_Delay);
+                }
+                else
+                {
+                    Show_Page(Page_InternalPara_ID);
+                }
+            }
+        }
     }
-    if (F_ExtraFrameSending == 0)
-    {
-        F_RegularFrameSending = 1;
-    }
-#endif
 }
 
 
@@ -926,9 +1024,6 @@ void Task_SendDataDeal(void)
 {
     unsigned char FrameType = 0; 
 
-#if 0
-    MakeSettingFrame();
-#else
     if (F_SYNC == 1)
     {
         MakeSyncFrame();
@@ -944,33 +1039,10 @@ void Task_SendDataDeal(void)
             Valve.Adjust.Adjust1.Adjust1Byte = 0;
             break;
         case Adjust_Frame:
-            GetMultiplexFrameTypeStatus(&F_RegularFrameSending, &F_ExtraFrameSending);
-            if (F_RegularFrameSending == 1)
-            {
-                MakeAdjustFrame();
-            }
-            else if (F_ExtraFrameSending == 1)
-            {
-                if ((PageFunctionIndex == Page_OpenTerminal_ID) || (PageFunctionIndex == Page_ShutTerminal_ID))// || (PageFunctionIndex == Page_In4mA_ID) || (PageFunctionIndex == Page_In20mA_ID) || (PageFunctionIndex == Page_ANSignal_ID))
-                {
-                    MakeAdjustFrame();
-                }
-                else
-                {
-                    MakeNormalFrame();
-                }
-            }
+            MakeAdjustFrame();
             break;
         case Setting_Frame:
-            GetMultiplexFrameTypeStatus(&F_RegularFrameSending, &F_ExtraFrameSending);
-            if (F_RegularFrameSending == 1)
-            {
-                MakeSettingFrame();
-            }
-            else if (F_ExtraFrameSending == 1)
-            {
-                MakeNormalFrame();
-            }
+            MakeSettingFrame();
             Valve.Adjust.Adjust0.Adjust0Byte = 0;
             Valve.Adjust.Adjust1.Adjust1Byte = 0;
             break;
@@ -979,7 +1051,6 @@ void Task_SendDataDeal(void)
             break;
         }
     }
-#endif
 }
 
 
@@ -1008,104 +1079,34 @@ void Task_RecvDataDeal(void)
         return;
     }
 
+    Count = 0;
+    F_Disconnect = 0;
+
     switch(RecvBuf[RecognizeIndex])
     {
     case ReplyNormalFrame_IDCode:
-        Count = 0;
-        F_Disconnect = 0;
         NormalFrameDeal();
         break;
     case ReplyExtraNormalFrame_IDCode:
-        Count = 0;
-        F_Disconnect = 0;
         ExtraNormalFrameDeal();
         break;
     case ReplyAdjustFrame_IDCode:
-        Count = 0;
-        F_Disconnect = 0;
         AdjustFrameDeal();
         break;
     case ReplyExtraAdjustFrame_IDCode:
-        Count = 0;
-        F_Disconnect = 0;
         ExtraAdjustFrameDeal();
         break;
     case ReplySettingFrame_IDCode:
-        Count = 0;
-        F_Disconnect = 0;
         SettingFrameDeal();
         break;
     case ReplyExtraSettingFrame_IDCode:
-        Count = 0;
-        F_Disconnect = 0;
+        ExtraSettingFrameDeal();
         break;
     default:
-        Count++;
-        if (Count >= 50)
-        {
-            //--
-            F_Disconnect = 1;
-        }
         break;
     }
 
-    if (F_WaitAdjustFrame == 1)    //--
-    {
-        if ((IsTimeOut(WaitReplyTimer) == 1))
-        {
-            F_WaitAdjustFrame = 0;
-    
-            if (CurrentAdjustType == Frame_AdjustZero)
-            {
-                if (Valve.AdjustInfo.AdjustInfoBits.Zero == 1)
-                {
-                    Show_Page(Page_AdjustZeroInfo_ID);
-                    SetTimer(AdjustInfoTimer, AdjustInfo_Delay);
-                }
-                else
-                {
-                    Show_Page(Page_Terminal_ID);
-                }
-            }
-            if (CurrentAdjustType == Frame_AdjustFull)
-            {
-                if (Valve.AdjustInfo.AdjustInfoBits.Full == 1)
-                {
-                    Show_Page(Page_AdjustFullInfo_ID);
-                    SetTimer(AdjustInfoTimer, AdjustInfo_Delay);
-                }
-                else
-                {
-                    Show_Page(Page_Terminal_ID);
-                }
-            }
-            if (CurrentAdjustType == Frame_AdjustInput4mA)
-            {
-                if (Valve.AdjustInfo.AdjustInfoBits.Input4mA == 1)
-                {
-                    Show_Page(Page_In4mAInfo_ID);
-                    SetTimer(AdjustInfoTimer, AdjustInfo_Delay);
-                }
-                else
-                {
-                    Show_Page(Page_ANSignal_ID);
-                }
-            }
-            if (CurrentAdjustType == Frame_AdjustInput20mA)
-            {
-                if (Valve.AdjustInfo.AdjustInfoBits.Input20mA == 1)
-                {
-                    Show_Page(Page_In20mAInfo_ID);
-                    SetTimer(AdjustInfoTimer, AdjustInfo_Delay);
-                }
-                else
-                {
-                    Show_Page(Page_ANSignal_ID);
-                }
-            }
-        }
-    }
-
+    WaitForAdjustFrame();
 }
 
 

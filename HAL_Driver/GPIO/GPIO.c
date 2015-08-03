@@ -13,7 +13,6 @@
 /*******************************************************************************
 *                                    Í·  ÎÄ  ¼þ
 ********************************************************************************/
-#include "stm32f0xx_conf.h"
 #include "Config.h"
 #include "GPIO.h"
 
@@ -62,29 +61,29 @@ void GpioInit(void)
     GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
     GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
     GPIO_InitStructure.GPIO_PuPd  = GPIO_PuPd_UP ;
-    GPIO_Init(COMM_Port, &GPIO_InitStructure); 
+    GPIO_Init(COMM_CS_Port, &GPIO_InitStructure); 
     COMM_CSClr();
     //-MISO-  
     GPIO_InitStructure.GPIO_Pin  = COMM_MISO_Pin ;
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN;
-    GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_DOWN; 
-    GPIO_Init(COMM_Port, &GPIO_InitStructure); 
+    GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_UP; 
+    GPIO_Init(COMM_MISO_Port, &GPIO_InitStructure); 
     //-MOSI-   
     GPIO_InitStructure.GPIO_Pin   = COMM_MOSI_Pin ;
     GPIO_InitStructure.GPIO_Mode  = GPIO_Mode_OUT;
     GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
     GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
     GPIO_InitStructure.GPIO_PuPd  = GPIO_PuPd_UP ;
-    GPIO_Init(COMM_Port, &GPIO_InitStructure);
-    COMM_MOSIClr();
+    GPIO_Init(COMM_MOSI_Port, &GPIO_InitStructure);
+    COMM_MOSISet();
     //-CLK-
     GPIO_InitStructure.GPIO_Pin   = COMM_CLK_Pin ;
     GPIO_InitStructure.GPIO_Mode  = GPIO_Mode_OUT;
     GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
     GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
     GPIO_InitStructure.GPIO_PuPd  = GPIO_PuPd_UP ;
-    GPIO_Init(COMM_Port, &GPIO_InitStructure);
-    COMM_CLKClr();
+    GPIO_Init(COMM_CLK_Port, &GPIO_InitStructure);
+    COMM_CLKSet();
 
 
     /*-Infrared-*/
@@ -106,39 +105,23 @@ void GpioInit(void)
 
     /*-Key-*/
     //-Remote-
-#if DebugTmp
-    RCC_MCOConfig(RCC_MCOSource_SYSCLK, RCC_MCOPrescaler_1);
-    GPIO_InitStructure.GPIO_Pin = Key_Remote_Pin;
-    GPIO_InitStructure.GPIO_Mode =  GPIO_Mode_AF;
-    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-    GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
-    GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_UP ;
-    GPIO_Init(Key_Port, &GPIO_InitStructure); 
-    GPIO_PinAFConfig(Key_Port, GPIO_PinSource8, GPIO_AF_0);    
-#else
     GPIO_InitStructure.GPIO_Pin  = Key_Remote_Pin ;
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN;
     GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_DOWN ; 
     GPIO_Init(Key_Port, &GPIO_InitStructure);
-#endif
 
     //-Local-
     GPIO_InitStructure.GPIO_Pin  = Key_Local_Pin ;
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN;
     GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_DOWN ; 
     GPIO_Init(Key_Port, &GPIO_InitStructure);   
-    //-Next- 
-    GPIO_InitStructure.GPIO_Pin  = Key_Next_Pin ;
+    //-Close- 
+    GPIO_InitStructure.GPIO_Pin  = Key_Close_Pin ;
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN;
     GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_DOWN ; 
     GPIO_Init(Key_Port, &GPIO_InitStructure);
-    //-OK-
-    GPIO_InitStructure.GPIO_Pin  = Key_OK_Pin ;
-    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN;
-    GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_DOWN ; 
-    GPIO_Init(Key_Port, &GPIO_InitStructure);
-    //-ESC-
-    GPIO_InitStructure.GPIO_Pin  = Key_ESC_Pin ;
+    //-Open-
+    GPIO_InitStructure.GPIO_Pin  = Key_Open_Pin ;
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN;
     GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_DOWN ; 
     GPIO_Init(Key_Port, &GPIO_InitStructure);
@@ -151,83 +134,62 @@ void GpioInit(void)
     GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
     GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
     GPIO_InitStructure.GPIO_PuPd  = GPIO_PuPd_UP ;
-    GPIO_Init(Led_Port, &GPIO_InitStructure); 
+    GPIO_Init(Led_OpenLimit_Port, &GPIO_InitStructure); 
     //-ShutLimit-
     GPIO_InitStructure.GPIO_Pin   = Led_ShutLimit_Pin ;
-    GPIO_Init(Led_Port, &GPIO_InitStructure); 
-    //-Error-
-    GPIO_InitStructure.GPIO_Pin   = Led_Error_Pin ;
-    GPIO_Init(Led_Port, &GPIO_InitStructure);     
+    GPIO_Init(Led_ShutLimit_Port, &GPIO_InitStructure);    
 
 
-    /*-OLED-*/
+    /*-Lcd-*/
     //-RES-
-    GPIO_InitStructure.GPIO_Pin   = OLed_RES_Pin ;
+    GPIO_InitStructure.GPIO_Pin   = Lcd_RES_Pin ;
     GPIO_InitStructure.GPIO_Mode  = GPIO_Mode_OUT;
     GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
     GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
     GPIO_InitStructure.GPIO_PuPd  = GPIO_PuPd_UP;
-    GPIO_Init(OLed_RES_Port, &GPIO_InitStructure); 
-    OLed_RESSet();
+    GPIO_Init(Lcd_RES_Port, &GPIO_InitStructure); 
+    Lcd_RESSet();
     //-CS-
-    GPIO_InitStructure.GPIO_Pin   = OLed_CS_Pin ;
-    GPIO_Init(OLed_CS_Port, &GPIO_InitStructure); 
-    OLed_CSSet();
+    GPIO_InitStructure.GPIO_Pin   = Lcd_CS_Pin ;
+    GPIO_Init(Lcd_CS_Port, &GPIO_InitStructure); 
+    Lcd_CSSet();
     //-DC-
-    GPIO_InitStructure.GPIO_Pin   = OLed_DC_Pin ;
-    GPIO_Init(OLed_DC_Port, &GPIO_InitStructure); 
-    OLed_DCSet();
+    GPIO_InitStructure.GPIO_Pin   = Lcd_DC_Pin ;
+    GPIO_Init(Lcd_DC_Port, &GPIO_InitStructure); 
+    Lcd_DCSet();
     //-RD-
-    GPIO_InitStructure.GPIO_Pin   = OLed_RD_Pin ;
-    GPIO_Init(OLed_RD_Port, &GPIO_InitStructure); 
-    OLed_RDSet();
+    GPIO_InitStructure.GPIO_Pin   = Lcd_RD_Pin ;
+    GPIO_Init(Lcd_RD_Port, &GPIO_InitStructure); 
+    Lcd_RDSet();
     //-WR-
-    GPIO_InitStructure.GPIO_Pin   = OLed_WR_Pin ;
-    GPIO_Init(OLed_WR_Port, &GPIO_InitStructure); 
-    OLed_WRSet();
+    GPIO_InitStructure.GPIO_Pin   = Lcd_WR_Pin ;
+    GPIO_Init(Lcd_WR_Port, &GPIO_InitStructure); 
+    Lcd_WRSet();
     //-D0-D7-
-#if DebugTmp
-    GPIO_InitStructure.GPIO_Pin   = GPIO_Pin_6 ;
-    GPIO_InitStructure.GPIO_Mode  = GPIO_Mode_AF;
-    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-    GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
-    GPIO_InitStructure.GPIO_PuPd  = GPIO_PuPd_UP ;
-    GPIO_Init(GPIOA, &GPIO_InitStructure); 
-    GPIO_PinAFConfig(GPIOA, GPIO_PinSource6, GPIO_AF_1);   
-
-    GPIO_InitStructure.GPIO_Pin   = GPIO_Pin_7 ;
-    GPIO_InitStructure.GPIO_Mode  = GPIO_Mode_AF;
-    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-    GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
-    GPIO_InitStructure.GPIO_PuPd  = GPIO_PuPd_UP ;
-    GPIO_Init(GPIOA, &GPIO_InitStructure); 
-    GPIO_PinAFConfig(GPIOA, GPIO_PinSource7, GPIO_AF_5); 
-#else
-    GPIO_InitStructure.GPIO_Pin   = OLed_D0_Pin ;
-    GPIO_Init(OLed_Data_Port, &GPIO_InitStructure);
+    GPIO_InitStructure.GPIO_Pin   = Lcd_D0_Pin ;
+    GPIO_Init(Lcd_Data_Port, &GPIO_InitStructure);
  
-    GPIO_InitStructure.GPIO_Pin   = OLed_D1_Pin ;
-    GPIO_Init(OLed_Data_Port, &GPIO_InitStructure); 
+    GPIO_InitStructure.GPIO_Pin   = Lcd_D1_Pin ;
+    GPIO_Init(Lcd_Data_Port, &GPIO_InitStructure); 
 
-    GPIO_InitStructure.GPIO_Pin   = OLed_D2_Pin ;
-    GPIO_Init(OLed_Data_Port, &GPIO_InitStructure);
+    GPIO_InitStructure.GPIO_Pin   = Lcd_D2_Pin ;
+    GPIO_Init(Lcd_Data_Port, &GPIO_InitStructure);
  
-    GPIO_InitStructure.GPIO_Pin   = OLed_D3_Pin ;
-    GPIO_Init(OLed_Data_Port, &GPIO_InitStructure);
+    GPIO_InitStructure.GPIO_Pin   = Lcd_D3_Pin ;
+    GPIO_Init(Lcd_Data_Port, &GPIO_InitStructure);
  
-    GPIO_InitStructure.GPIO_Pin   = OLed_D4_Pin ;
-    GPIO_Init(OLed_Data_Port, &GPIO_InitStructure);
+    GPIO_InitStructure.GPIO_Pin   = Lcd_D4_Pin ;
+    GPIO_Init(Lcd_Data_Port, &GPIO_InitStructure);
  
-    GPIO_InitStructure.GPIO_Pin   = OLed_D5_Pin ;
-    GPIO_Init(OLed_Data_Port, &GPIO_InitStructure); 
+    GPIO_InitStructure.GPIO_Pin   = Lcd_D5_Pin ;
+    GPIO_Init(Lcd_Data_Port, &GPIO_InitStructure); 
 
-    GPIO_InitStructure.GPIO_Pin   = OLed_D6_Pin ;
-    GPIO_Init(OLed_Data_Port, &GPIO_InitStructure); 
+    GPIO_InitStructure.GPIO_Pin   = Lcd_D6_Pin ;
+    GPIO_Init(Lcd_Data_Port, &GPIO_InitStructure); 
 
-    GPIO_InitStructure.GPIO_Pin   = OLed_D7_Pin ;
-    GPIO_Init(OLed_Data_Port, &GPIO_InitStructure);
-    OLed_WriteDataBus(0x00);
-#endif
+    GPIO_InitStructure.GPIO_Pin   = Lcd_D7_Pin ;
+    GPIO_Init(Lcd_Data_Port, &GPIO_InitStructure);
+    //Lcd_WriteDataBus(0x00);
  
 
     /*-Font Chip-*/ 

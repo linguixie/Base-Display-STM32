@@ -27,7 +27,7 @@ extern "C" {
 /*******************************************************************************
 *                                  宏  定  义
 ********************************************************************************/
-#define CommFreq                 8000
+#define CommFreq                 4000
 #define CommTimerClockEnable()   (RCC_APB2PeriphClockCmd(RCC_APB2Periph_TIM1, ENABLE))
 #define CommTimer                TIM1
 #define CommIRQ                  TIM1_BRK_UP_TRG_COM_IRQn
@@ -91,7 +91,7 @@ typedef enum
  
  //-等待主板回复延时间(单位:毫秒)-
 #define WaitReplyTime                       400       
-#define WaitReply_Delay                     (Division(WaitReplyTime, Delay_2MiliSecond_Factor))
+#define WaitReply_Delay                     (Division(WaitReplyTime, Delay_MiliSecond_Factor))
 
 /*******************************************************************************
 *                                  全局变量声明

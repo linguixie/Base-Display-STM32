@@ -28,7 +28,7 @@ extern "C" {
 *                                  ∫Í  ∂®  “Â
 ********************************************************************************/
 #define Led_Module_Enable         1
-typedef enum{LED_ERROR,  LED_SHUTLIMIT, LED_OPENLIMIT, LED_Number}Led_Enum;    //-Led±‡∫≈-
+typedef enum{LED_SHUTLIMIT, LED_OPENLIMIT, LED_Number}Led_Enum;    //-Led±‡∫≈-
 
  
 /*******************************************************************************

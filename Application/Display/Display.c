@@ -15,7 +15,7 @@
 ********************************************************************************/
 #include "Type.h"
 #include "Main.h"
-#include "OLed.h"
+#include "Lcd.h"
 #include "Key.h"
 #include "SoftTimer.h"
 #include "Valve.h"
@@ -23,21 +23,22 @@
 #include "UI.h"
 #include "Communication.h"
 #include "Display.h"
+#include "Lcd.h"
+#include "Communication.h"
 
 /*******************************************************************************
 *                               文件内部使用宏定义
 ********************************************************************************/
-//--
+#define PasswordByte_0   0x01
+#define PasswordByte_1   0x00
+#define PasswordByte_2   0x00
+#define PasswordByte_3   0x00
+
 #define MaxLockTime      0xFFFF
 #define MinLockTime      0x00
 
-//--
-#define PasswordNum      3
-#define InitPassword     0xFF
-
 //-为了书写方便-
 #define Space            GBK_Space
-
 
 //-虚拟按键,对按键的封装,V是Virtual-
 typedef enum
@@ -50,6 +51,7 @@ typedef enum
    VKey_Down,
    VKey_Num  
 }VKey_TypeDef;
+
 /*******************************************************************************
 *                                 全局函数(变量)声明
 ********************************************************************************/
@@ -57,31 +59,20 @@ unsigned char PageFunctionIndex = Page_PowerOn_ID;
   
 unsigned char NeedResetMenuPara = 0;
 
-//-密码相关-
-unsigned char Password[PasswordNum] = {0, 0, 0};
-unsigned char PasswordInput[PasswordNum] = {InitPassword, InitPassword, InitPassword};
-unsigned char DigitInputCount = 0;
-
+unsigned char PasswordErrorCount = 0;
+unsigned char Password[4] = {0};
 
 //-此数组先前定义在ShowNumber中,但是后来发现会导致栈空间不够,
 // 只能将原来局部变量改成全局变量.-
-#if 1
 unsigned int LongCode[16];
-#endif
 
 unsigned char IsNeedChangePage = 0;
 unsigned char F_StartRecv = 1;
-
 
 //-无按键延时-
 signed long NoKeyTimer = 0;
 //-标定成功信息提示延时-
 signed long AdjustInfoTimer = 0;
-
-#if Debug
-unsigned char PrePageFunctionIndex = Page_CommTest_ID;
-unsigned char NeedShowSYNC = 0;
-#endif
 /*******************************************************************************
 *                                 静态函数(变量)声明
 ********************************************************************************/
@@ -108,9 +99,9 @@ const unsigned short int SeriousErrorArray[8][2][16] =
 const unsigned short int SlightErrorArray[8][2][16] = 
 {
     //-关力矩故障(Open Torque Err!)-
-    {{0xB9D8, 0xC1A6, 0xBED8, 0xB9CA, 0xD5CF}, {0x4F, 0x70, 0x65, 0x6E, 0x20, 0x54, 0x6F, 0x72, 0x71, 0x75, 0x65, 0x20, 0x45, 0x72, 0x72, 0x21}},
+    {{0xB9D8, 0xCFF2, 0xB9FD, 0xBED8}, {0x4F, 0x70, 0x65, 0x6E, 0x20, 0x54, 0x6F, 0x72, 0x71, 0x75, 0x65, 0x20, 0x45, 0x72, 0x72, 0x21}},
     //-开力矩故障(Shut Torque Err!)-
-    {{0xBFAA, 0xC1A6, 0xBED8, 0xB9CA, 0xD5CF}, {0x53, 0x68, 0x75, 0x74, 0x20, 0x54, 0x6F, 0x72, 0x71, 0x75, 0x65, 0x20, 0x45, 0x72, 0x72, 0x21}}, 
+    {{0xBFAA, 0xCFF2, 0xB9FD, 0xBED8}, {0x53, 0x68, 0x75, 0x74, 0x20, 0x54, 0x6F, 0x72, 0x71, 0x75, 0x65, 0x20, 0x45, 0x72, 0x72, 0x21}}, 
     //-关向超时(Shut Timeout!)-
     {{0xB9D8, 0xCFF2, 0xB3AC, 0xCAB1}, {0x53, 0x68, 0x75, 0x74, 0x20, 0x54, 0x69, 0x6D, 0x65, 0x6F, 0x75, 0x74, 0x21}},
     //-开向超时(Open Timeout!)-
@@ -149,402 +140,135 @@ const MenuStructure Menu_Template[] =
   //-索引号       父菜单                 子菜单                   菜单项名称-
   //--
   {0,             InvalidMenuID,         InvalidMenuID,           {0},
-  DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
+  Dummy_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
 
   //--
   {1,             InvalidMenuID,         InvalidMenuID,           {0},
-  DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
+  Dummy_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
 
   //--
   {2,             InvalidMenuID,         InvalidMenuID,           {0},
-  DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
+  Dummy_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
 
   //--
   {3,             InvalidMenuID,         InvalidMenuID,           {0},
-  DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //--
-  {3,             InvalidMenuID,         InvalidMenuID,           {0},
-  DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
+  Dummy_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
 };
 
-//-第4个初始值代表菜单项个数,必须给正确的值-
-MenuPara      MenuPara_Template = {0, 0, 4, 5, Multiplex_None, StandardMenu_Reset0};
+//-第6个初始值代表菜单项个数,必须给正确的值-
+MenuPara      MenuPara_Template = {2, 2, Disable, Enable, 8, 4, Multiplex_None, Dummy_Reset};
 ********************************************************************************/
-
 
 /*-------------------上电页面(行索引固定的菜单)-------------------------------*/
 const MenuStructure Menu_PowerOn[] = 
 {
   /*-索引号       父菜单                 子菜单                   菜单项名称-*/
+  //-欢迎使用-
+  {0,             InvalidMenuID,           InvalidMenuID,         {0xA3A0, 0xA3A0, 0xA3A0, 0xA3A0, 0xBBB6, 0xD3AD, 0xCAB9, 0xD3C3,  0xA3A0, 0xA3A0, 0xA3A0, 0xA3A0},
+  Dummy_Special,  StandardMenu_SetKey, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
+
+  //-电动阀门执行机构-
+  {1,             InvalidMenuID,           InvalidMenuID,         {0xB5E7, 0xB6AF, 0xB7A7, 0xC3C5, 0xD6B4, 0xD0D0, 0xBBFA, 0xB9B9},
+  Dummy_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
+
+  //-版本V1.0-
+  {2,            InvalidMenuID,           InvalidMenuID,          {0xA3A0, 0xA3A0, 0xB0E6, 0xB1BE, 0xA3BA, 0xA3A0, 0xA3D6, 0xA3B1, 0xA3AE, 0xA3B0, 0xA3A0, 0xA3A0, 0xA3A0, 0xA3A0},
+  Dummy_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
+
   //--
-  {0,             InvalidMenuID,           InvalidMenuID,          {0},
-  DummyFunction,  StandardMenu_SetKey, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-  电动执行机构-
-  {1,             InvalidMenuID,           InvalidMenuID,          {{Space, Space, 0xB5E7, 0xB6AF, 0xD6B4, 0xD0D0, 0xBBFA, 0xB9B9}, {Space, Space, 0xB5E7, 0xB6AF, 0xD6B4, 0xD0D0, 0xBBFA, 0xB9B9}},
-  DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //--
-  {2,            InvalidMenuID,           InvalidMenuID,           {0},
-  DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-扬修    YEPEF-
-  {3,            InvalidMenuID,           InvalidMenuID,           {{0xD1EF, 0xD0DE, Space, Space, Space, Space, Space, Space, 0xA3D9, 0xA3C5, 0xA3D0, 0xA3C5, 0xA3C6}, {0xD1EF, 0xD0DE, Space, Space, Space, Space, Space, Space, 0xA3D9, 0xA3C5, 0xA3D0, 0xA3C5, 0xA3C6}},
-  DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
+  {3,            InvalidMenuID,           InvalidMenuID,          {0},
+  Dummy_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
 };
 
-//-第4个初始值代表菜单项个数,必须给正确的值-
-MenuPara      MenuPara_PowerOn = {0, 0, 4, 4, Multiplex_None, DummyFunction1};    
+//-第6个初始值代表菜单项个数,必须给正确的值-
+MenuPara      MenuPara_PowerOn = {0, Invalid, Disable, Disable, Invalid, 4, Multiplex_None, Dummy_Reset};    
 
 
-/*-------------------常显界面-------------------------------*/
+/*------------------ 常显页面(行索引固定的菜单)-------------------------------*/
 const MenuStructure Menu_Normal[] = 
 {
   /*-索引号       父菜单                 子菜单                   菜单项名称-*/
-  //--
-  {0,             InvalidMenuID,           Page_Language_ID,       {0},
-  Normal_Special0,  StandardMenu_SetKey, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
+  //-占位,内容在NormalPage_Special中填充-
+  {0,             InvalidMenuID,    Page_MainMenu_ID,             {0},
+  NormalPage_Special0, StandardMenu_SetKey, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
 
-  //--
-  {1,             InvalidMenuID,           InvalidMenuID,          {0},
-  Normal_Special1, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
+  //-占位,内容在NormalPage_Special中填充-
+  {1,             InvalidMenuID,           InvalidMenuID,         {0},
+  NormalPage_Special1, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
 
-  //--
-  {2,            InvalidMenuID,           InvalidMenuID,           {0},
-  DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
+  //-占位,内容在NormalPage_Special中填充-
+  {2,             InvalidMenuID,           InvalidMenuID,         {0},
+  NormalPage_Special2, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
 
-  //--
-  {3,            InvalidMenuID,           InvalidMenuID,           {0},
-  Normal_Special2, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
+  //-占位,内容在NormalPage_Special中填充-
+  {3,             InvalidMenuID,           InvalidMenuID,           {0},
+  NormalPage_Special3, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
 };
 
-//-第4个初始值代表菜单项个数,必须给正确的值-
-MenuPara      MenuPara_Normal = {0, 0, 4, 4, Multiplex_None, DummyFunction1}; 
+//-第6个初始值代表菜单项个数,必须给正确的值-
+MenuPara      MenuPara_Normal = {0, Invalid, Disable, Disable, Invalid, 4, Multiplex_None, Dummy_Reset};    
 
 
-/*-------------------错误界面-------------------------------*/
-const MenuStructure Menu_Error[] = 
+/*--------------------主菜单--------------------------------------------------*/
+const MenuStructure Menu_Main[] =         
 {
   /*-索引号       父菜单                 子菜单                   菜单项名称-*/
+  //-标定全关-
+  {0,             Page_Normal_ID,          Page_AdjustZero_ID,    {0xB1EA, 0xB6A8, 0xC8AB, 0xB9D8},
+   Dummy_Special, StandardMenu_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
+
+  //-标定全开-
+  {1,             InvalidMenuID,           Page_AdjustFull_ID,    {0xB1EA, 0xB6A8, 0xC8AB, 0xBFAA},
+   Dummy_Special, StandardMenu_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
+  
+  //-现场控制方式-
+  {2,             InvalidMenuID,           Page_LocalMode_ID,     {0xCFD6, 0xB3A1, 0xBFD8, 0xD6C6, 0xB7BD, 0xCABD},
+   Dummy_Special, StandardMenu_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
+  
+  //-远程开关型设置-
+  {3,             InvalidMenuID,           Page_RemoteIOMode_ID,  {0xD4B6, 0xB3CC, 0xBFAA, 0xB9D8, 0xD0CD, 0xC9E8, 0xD6C3},
+   Dummy_Special, StandardMenu_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
+
+  //-远程调节型设置-
+  {4,             InvalidMenuID,           Page_RemoteANMode_ID,  {0xD4B6, 0xB3CC, 0xB5F7, 0xBDDA, 0xD0CD, 0xC9E8, 0xD6C3},
+   Dummy_Special, StandardMenu_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
+  
+  //-内部参数-
+  {5,             InvalidMenuID,           Page_Password_ID,      {0xC4DA, 0xB2BF, 0xB2CE, 0xCAFD},
+   Dummy_Special, StandardMenu_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
+  
+  //-退出设置-
+  {6,             Page_Normal_ID,          InvalidMenuID,           {0xCDCB, 0xB3F6, 0xC9E8, 0xD6C3},
+   Dummy_Special, StandardMenu_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction}
+};   
+
+//-第6个初始值代表菜单项个数,必须给正确的值-
+MenuPara      MenuPara_Main = {0, Invalid, Enable, Disable, Invalid, 7, Multiplex_None, StandardMenu_Reset0};    
+
+
+/*---------------------标定零点-----------------------------------------------*/
+const MenuStructure Menu_AdjustZero[] = 
+{
+  /*-索引号       父菜单                 子菜单                   菜单项名称-*/
+  //-把当前位置#0-
+  {0,             Page_MainMenu_ID,        InvalidMenuID,         {0xB0D1, 0xB5B1, 0xC7B0, 0xCEBB, 0xD6C3, 0xA3A3},
+   AdjustZeroFull_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
+  
+  //-标定为0%-
+  {1,             InvalidMenuID,           InvalidMenuID,         {0xA3A0, 0xA3A0, 0xA3A0, 0xA3A0, 0xB1EA, 0xB6A8, 0xCEAA, 0xA3B0, 0xA3A5},
+   AdjustZeroFull_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
+  
   //--
-  {0,             InvalidMenuID,           Page_Language_ID,       {0},
-  Opening_Special,  StandardMenu_SetKey, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //--
-  {1,             InvalidMenuID,           InvalidMenuID,          {0},
-  Error_Special0, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //--
-  {2,            InvalidMenuID,           InvalidMenuID,           {0},
-  Error_Special1, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //--
-  {3,            InvalidMenuID,           InvalidMenuID,           {0},
-  Normal_Special2, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-};
-
-//-第4个初始值代表菜单项个数,必须给正确的值-
-MenuPara      MenuPara_Error = {0, 0, 4, 4, Multiplex_None, DummyFunction1};
-
-
-/*------------------ 语言选择页面-------------------------------*/
-const MenuStructure Menu_Language[] = 
-{
-  /*-索引号       父菜单                 子菜单                   菜单项名称-*/
-  //-语言选择(语言选择)-
-  {0,             Page_Normal_ID,        InvalidMenuID,           {{0xD3EF, 0xD1D4, 0xD1A1, 0xD4F1}, {0xD3EF, 0xD1D4, 0xD1A1, 0xD4F1}},
-  Opening_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-  //-Language(Language)-
-  {1,             InvalidMenuID,         InvalidMenuID,           {{0xA3CC, 0xA3E1, 0xA3EE, 0xA3E7, 0xA3F5, 0xA3E1, 0xA3E7, 0xA3E5}, {0xA3CC, 0xA3E1, 0xA3EE, 0xA3E7, 0xA3F5, 0xA3E1, 0xA3E7, 0xA3E5}},
-  DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-    简体中文(简体中文)-
-  {2,             InvalidMenuID,         Page_Configuration_ID,   {{Space, Space, Space, Space, 0xBCF2, 0xCCE5, 0xD6D0, 0xCEC4}, {Space, Space, Space, Space, 0xBCF2, 0xCCE5, 0xD6D0, 0xCEC4}},
-  DummyFunction, Language_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
-
-  //-    ENGLISH(ENGLISH)
-  {3,             InvalidMenuID,         Page_Configuration_ID,   {{Space, Space, Space, Space, 0xA3C5, 0xA3CE, 0xA3C7, 0xA3CC, 0xA3C9, 0xA3D3, 0xA3C8}, {Space, Space, Space, Space, 0xA3C5, 0xA3CE, 0xA3C7, 0xA3CC, 0xA3C9, 0xA3D3, 0xA3C8}},
-  DummyFunction, Language_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
-};
-
-//-第4个初始值代表菜单项个数,必须给正确的值-
-MenuPara      MenuPara_Language = {2, 2, 4, 4, Multiplex_None, StandardMenu_Reset0}; 
-
-
-/*------------------ 组态页面-------------------------------*/
-const MenuStructure Menu_Configuration[] = 
-{
-  /*-索引号       父菜单                 子菜单                   菜单项名称-*/
-  //-组态(Config)-
-  {0,             Page_Language_ID,      InvalidMenuID,           {{0xD7E9, 0xCCAC}, {0x43, 0x6F, 0x6E, 0x66, 0x69, 0x67}},
-  Opening_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-  //-参数(Para)-
-  {1,             InvalidMenuID,         InvalidMenuID,           {{0xB2CE, 0xCAFD}, {0x50, 0x61, 0x72, 0x61}},
-  DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-  设置(Setting)-
-  {2,             InvalidMenuID,         Page_Password_ID,        {{Space, Space, 0xC9E8, 0xD6C3}, {Space, Space, 0x53, 0x65, 0x74, 0x74, 0x69, 0x6E, 0x67}},
-  DummyFunction, StandardMenu_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
-
-  //-  浏览(Browse)-
-  {3,             InvalidMenuID,         Page_ParaQuery_ID,       {{Space, Space, 0xE4AF, 0xC0C0}, {Space, Space, 0x42, 0x72, 0x6F, 0x77, 0x73, 0x65}},
-  DummyFunction, StandardMenu_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
-};
-
-//-第4个初始值代表菜单项个数,必须给正确的值-
-MenuPara      MenuPara_Configuration = {2, 2, 4, 4, Multiplex_None, StandardMenu_Reset0};
-
- 
-/*------------------ 输入密码页面-------------------------------*/
-const MenuStructure Menu_Password[] = 
-{
-  /*-索引号       父菜单                 子菜单                   菜单项名称-*/
-  //-参数设置(Para Set)-
-  {0,             Page_Language_ID,      InvalidMenuID,           {{0xB2CE, 0xCAFD, 0xC9E8, 0xD6C3}, {0x50, 0x61, 0x72, 0x61, 0x20, 0x53, 0x65, 0x74}},
-  Opening_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-  //-输入密码(Enter Pwd)-
-  {1,             InvalidMenuID,         InvalidMenuID,           {{0xCAE4, 0xC8EB, 0xC3DC, 0xC2EB}, {0x45, 0x6E, 0x74, 0x65, 0x72, 0x20, 0x50, 0x77, 0x64}},
-  DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //- * * *-
-  {2,             Page_Configuration_ID, Page_ParaSetting_ID,     {0},
-  Password_Special, Password_SetKey, Password_UpKey, Password_DownKey, Password_IncKey, Password_DecKey},
-
-  //--
-  {3,             InvalidMenuID,         InvalidMenuID,           {0},
-  DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-};
-
-//-第4个初始值代表菜单项个数,必须给正确的值-
-MenuPara      MenuPara_Password = {2, 2, 4, 4, Multiplex_Digit, Password_Reset};
-
-
-/*------------------ 参数设置(Para Set)-------------------------------*/
-const MenuStructure Menu_ParaSetting[] = 
-{
-  /*-索引号       父菜单                 子菜单                   菜单项名称-*/
-  //-参数设置(Para Set)-
-  {0,             Page_Configuration_ID, InvalidMenuID,           {{0xB2CE, 0xCAFD, 0xC9E8, 0xD6C3}, {0x50, 0x61, 0x72, 0x61, 0x20, 0x53, 0x65, 0x74}},
-  Opening_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-  //-  基本(Basic)-
-  {1,             InvalidMenuID,         Page_ESDSetting_ID,      {{Space, Space, 0xBBF9, 0xB1BE}, {Space, Space, 0x42, 0x61, 0x73, 0x69, 0x63}},
-  DummyFunction, StandardMenu_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
-
-  //-  终端(Tmn)-
-  {2,             InvalidMenuID,         Page_Terminal_ID,        {{Space, Space, 0xD6D5, 0xB6CB}, {Space, Space, 0x54, 0x6D, 0x6E}},
-  DummyFunction, StandardMenu_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
-
-  //-  I/O(I/O)-
-  {3,             InvalidMenuID,         Page_ErrorFeedBack_ID,   {{Space, Space, 0xA3C9, 0xA3AF, 0xA3CF}, {Space, Space, 0xA3C9, 0xA3AF, 0xA3CF}},
-  DummyFunction, StandardMenu_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
-
-  //-      控制(Contrl)-
-  {1,             InvalidMenuID,         Page_Control_ID,         {{Space, Space, Space, Space, Space, Space, Space, Space, Space, Space, 0xBFD8, 0xD6C6}, {Space, Space, Space, Space, Space, Space, Space, Space, Space, Space, 0x43, 0x6F, 0x6E, 0x74, 0x72, 0x6C}},
-  DummyFunction, StandardMenu_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
-
-  //-      信号(Signal)-
-  {2,             InvalidMenuID,         Page_ANSignal_ID,        {{Space, Space, Space, Space, Space, Space, Space, Space, Space, Space, 0xD0C5, 0xBAC5}, {Space, Space, Space, Space, Space, Space, Space, Space, Space, Space, 0x53, 0x69, 0x67, 0x6E, 0x61, 0x6C}},
-  DummyFunction, StandardMenu_SetKey, StandardMenu_UpKey,StandardMenu_DownKey, DummyFunction, DummyFunction},
-
-  //-      其他(Other)-
-  {3,             InvalidMenuID,         Page_ChangePassword_ID,  {{Space, Space, Space, Space, Space, Space, Space, Space, Space, Space, 0xC6E4, 0xCBFB}, {Space, Space, Space, Space, Space, Space, Space, Space, Space, Space, 0x4F, 0x74, 0x68, 0x65, 0x72}},
-  DummyFunction, StandardMenu_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
-};
-
-//-第4个初始值代表菜单项个数,必须给正确的值-
-MenuPara      MenuPara_ParaSetting = {1, 1, 4, 7, Multiplex_None, StandardMenu_Reset0};
-
-
-/*------------------ ESD设置-------------------------------*/
-MenuStructure Menu_ESDSetting[] = 
-{
-  /*-索引号       父菜单                 子菜单                   菜单项名称-*/
-  //-参数设置(Para Set)-
-  {0,             Page_ParaSetting_ID,   InvalidMenuID,           {{0xB2CE, 0xCAFD, 0xC9E8, 0xD6C3}, {0x50, 0x61, 0x72, 0x61, 0x20, 0x53, 0x65, 0x74}},
-  Opening_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-基本参数(Basic Para)-
-  {1,             InvalidMenuID,         InvalidMenuID,           {{0xBBF9, 0xB1BE, 0xB2CE, 0xCAFD}, {0x42, 0x61, 0x73, 0x69, 0x63, 0x20, 0x50, 0x61, 0x72, 0x61}},
-  DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-ESD设置(ESD Setting)-
-  {2,             InvalidMenuID,         InvalidMenuID,           {{0xA3C5, 0xA3D3, 0xA3C4, 0xC9E8, 0xD6C3}, {0x45, 0x53, 0x44, 0x20, 0x53, 0x65, 0x74, 0x74, 0x69, 0x6E, 0x67}},
-  DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-ESD禁用(ESD Disable)-
-  {3,             InvalidMenuID,         Page_DeadZone_ID,        {{Space, Space, 0xA3C5, 0xA3D3, 0xA3C4, 0xBDFB, 0xD3C3}, {Space, Space, 0x45, 0x53, 0x44, 0x20, 0x44, 0x69, 0x73, 0x61, 0x62, 0x6C, 0x65}},
-  ESDSetting_Special, ESDSetting_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
-
-  //-ESD禁止动作(ESD NoAction)-
-  {3,             InvalidMenuID,         Page_DeadZone_ID,        {{Space, Space, 0xA3C5, 0xA3D3, 0xA3C4, 0xBDFB, 0xD6B9, 0xB6AF, 0xD7F7}, {Space, Space, 0x45, 0x53, 0x44, 0x20, 0x4E, 0x6F, 0x41, 0x63, 0x74, 0x69, 0x6F, 0x6E}},
-  ESDSetting_Special, ESDSetting_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
-
-  //-ESD打开阀门(ESD Open)-
-  {3,             InvalidMenuID,         Page_DeadZone_ID,        {{Space, Space, 0xA3C5, 0xA3D3, 0xA3C4, 0xB4F2, 0xBFAA, 0xB7A7, 0xC3C5}, {Space, Space, 0x45, 0x53, 0x44, 0x20, 0x4F, 0x70, 0x65, 0x6E}},
-  ESDSetting_Special, ESDSetting_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
-
-  //-ESD关闭阀门(ESD Shut)-
-  {3,             InvalidMenuID,         Page_DeadZone_ID,        {{Space, Space, 0xA3C5, 0xA3D3, 0xA3C4, 0xB9D8, 0xB1D5, 0xB7A7, 0xC3C5}, {Space, Space, 0x45, 0x53, 0x44, 0x20, 0x53, 0x68, 0x75, 0x74}},
-  ESDSetting_Special, ESDSetting_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
-
-  //-ESD到中间位(ESD Middle)-
-  {3,             InvalidMenuID,         Page_DeadZone_ID,        {{Space, Space, 0xA3C5, 0xA3D3, 0xA3C4, 0xB5BD, 0xD6D0, 0xBCE4, 0xCEBB}, {Space, Space, 0x45, 0x53, 0x44, 0x20, 0x4D, 0x69, 0x64, 0x64, 0x6C, 0x65}},
-  ESDSetting_Special, ESDSetting_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
-};
-
-//-第4个初始值代表菜单项个数,必须给正确的值-
-MenuPara      MenuPara_ESDSetting = {3, 3, 4, 8, Multiplex_None, ESDSetting_Reset};
-
-
-/*------------------死区-------------------------------*/
-const MenuStructure Menu_DeadZone[] = 
-{
-  /*-索引号       父菜单                 子菜单                   菜单项名称-*/
-  //-参数设置(Para Set)-
-  {0,             Page_ParaSetting_ID,   InvalidMenuID,           {{0xB2CE, 0xCAFD, 0xC9E8, 0xD6C3}, {0x50, 0x61, 0x72, 0x61, 0x20, 0x53, 0x65, 0x74}},
-  Opening_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-基本参数(Basic Para)-
-  {1,             InvalidMenuID,         InvalidMenuID,           {{0xBBF9, 0xB1BE, 0xB2CE, 0xCAFD}, {0x42, 0x61, 0x73, 0x69, 0x63, 0x20, 0x50, 0x61, 0x72, 0x61}},
-  DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-控制死区(DeadZone Set)-
-  {2,             InvalidMenuID,         InvalidMenuID,           {{0xBFD8, 0xD6C6, 0xCBC0, 0xC7F8}, {0x44, 0x65, 0x61, 0x64, 0x5A, 0x6F, 0x6E, 0x65, 0x20, 0x53, 0x65, 0x74}},
-  DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //--
-  {3,             InvalidMenuID,         Page_OpenCurrent_ID,     {0},
-  DeadZone_Special, StandardMenu_SetKey, DummyFunction, DummyFunction, DeadZone_IncKey, DeadZone_DecKey},
-};
-
-//-第4个初始值代表菜单项个数,必须给正确的值-
-MenuPara      MenuPara_DeadZone = {3, 3, 4, 4, Multiplex_Digit, StandardMenu_Reset0};
-
-
-/*------------------开向电流-------------------------------*/
-const MenuStructure Menu_OpenCurrent[] = 
-{
-  /*-索引号       父菜单                 子菜单                   菜单项名称-*/
-  //-参数设置(Para Set)-
-  {0,             Page_ParaSetting_ID,   InvalidMenuID,           {{0xB2CE, 0xCAFD, 0xC9E8, 0xD6C3}, {0x50, 0x61, 0x72, 0x61, 0x20, 0x53, 0x65, 0x74}},
-  Opening_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-基本参数(Basic Para)-
-  {1,             InvalidMenuID,         InvalidMenuID,           {{0xBBF9, 0xB1BE, 0xB2CE, 0xCAFD}, {0x42, 0x61, 0x73, 0x69, 0x63, 0x20, 0x50, 0x61, 0x72, 0x61}},
-  DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-最大开向电流(Max Open Current)-
-  {2,             InvalidMenuID,         InvalidMenuID,           {{0xD7EE, 0xB4F3, 0xBFAA, 0xCFF2, 0xB5E7, 0xC1F7}, {0x4D, 0x61, 0x78, 0x20, 0x4F, 0x70, 0x65, 0x6E, 0x20, 0x43, 0x75, 0x72, 0x72, 0x65, 0x6E, 0x74}},
-  DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //--
-  {3,             InvalidMenuID,         Page_ShutCurrent_ID,     {0},
-  OpenCurrent_Special, StandardMenu_SetKey, DummyFunction, DummyFunction, OpenCurrent_IncKey, OpenCurrent_DecKey},
-};
-
-//-第4个初始值代表菜单项个数,必须给正确的值-
-MenuPara      MenuPara_OpenCurrent = {3, 3, 4, 4, Multiplex_Digit, StandardMenu_Reset0};
-
-
-/*------------------关向电流-------------------------------*/
-const MenuStructure Menu_ShutCurrent[] = 
-{
-  /*-索引号       父菜单                 子菜单                   菜单项名称-*/
-  //-参数设置(Para Set)-
-  {0,             Page_ParaSetting_ID,   InvalidMenuID,           {{0xB2CE, 0xCAFD, 0xC9E8, 0xD6C3}, {0x50, 0x61, 0x72, 0x61, 0x20, 0x53, 0x65, 0x74}},
-  Opening_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-基本参数(Basic Para)-
-  {1,             InvalidMenuID,         InvalidMenuID,           {{0xBBF9, 0xB1BE, 0xB2CE, 0xCAFD}, {0x42, 0x61, 0x73, 0x69, 0x63, 0x20, 0x50, 0x61, 0x72, 0x61}},
-  DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-最大关向电流(Max Shut Current)-
-  {2,             InvalidMenuID,         InvalidMenuID,           {{0xD7EE, 0xB4F3, 0xB9D8, 0xCFF2, 0xB5E7, 0xC1F7}, {0x4D, 0x61, 0x78, 0x20, 0x53, 0x68, 0x75, 0x74, 0x20, 0x43, 0x75, 0x72, 0x72, 0x65, 0x6E, 0x74}},
-  DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //--
-  {3,             InvalidMenuID,         Page_MaxActionTime_ID,   {0},
-  ShutCurrent_Special, StandardMenu_SetKey, DummyFunction, DummyFunction, ShutCurrent_IncKey, ShutCurrent_DecKey},
-};
-
-//-第4个初始值代表菜单项个数,必须给正确的值-
-MenuPara      MenuPara_ShutCurrent = {3, 3, 4, 4, Multiplex_Digit, StandardMenu_Reset0};
-
-
-/*------------------最大动作时间-------------------------------*/
-const MenuStructure Menu_MaxActionTime[] = 
-{
-  /*-索引号       父菜单                 子菜单                   菜单项名称-*/
-  //-参数设置(Para Set)-
-  {0,             Page_ParaSetting_ID,   InvalidMenuID,           {{0xB2CE, 0xCAFD, 0xC9E8, 0xD6C3}, {0x50, 0x61, 0x72, 0x61, 0x20, 0x53, 0x65, 0x74}},
-  Opening_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-基本参数(Basic Para)-
-  {1,             InvalidMenuID,         InvalidMenuID,           {{0xBBF9, 0xB1BE, 0xB2CE, 0xCAFD}, {0x42, 0x61, 0x73, 0x69, 0x63, 0x20, 0x50, 0x61, 0x72, 0x61}},
-  DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-最大开闭时间(Max Action Time)-
-  {2,             InvalidMenuID,         InvalidMenuID,           {{0xD7EE, 0xB4F3, 0xBFAA, 0xB1D5, 0xCAB1, 0xBCE4}, {0x4D, 0x61, 0x78, 0x20, 0x41, 0x63, 0x74, 0x69, 0x6F, 0x6E, 0x20, 0x54, 0x69, 0x6D, 0x65}},
-  DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //--
-  {3,             InvalidMenuID,         Page_ESDSetting_ID,      {0},
-  MaxActionTime_Special, StandardMenu_SetKey, DummyFunction, DummyFunction, MaxActionTime_IncKey, MaxActionTime_DecKey},
-};
-
-//-第4个初始值代表菜单项个数,必须给正确的值-
-MenuPara      MenuPara_MaxActionTime = {3, 3, 4, 4, Multiplex_Digit, StandardMenu_Reset0};
-
-
-/*------------------ 终端-------------------------------*/
-const MenuStructure Menu_Terminal[] = 
-{
-  /*-索引号       父菜单                 子菜单                   菜单项名称-*/
-  //-参数设置(Para Set)-
-  {0,             Page_ParaSetting_ID,   InvalidMenuID,           {{0xB2CE, 0xCAFD, 0xC9E8, 0xD6C3}, {0x50, 0x61, 0x72, 0x61, 0x20, 0x53, 0x65, 0x74}},
-  Opening_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-ESC退出!(ESC Exit!)-
-  {1,             InvalidMenuID,         InvalidMenuID,           {{0xA3C5, 0xA3D3, 0xA3C3, 0xCDCB, 0xB3F6, 0xA3A1}, {0x45, 0x53, 0x43, 0x20, 0x45, 0x78, 0x69, 0x74, 0x21}},
-  DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-开向终端(Full Open Pos)-
-  {2,             InvalidMenuID,         Page_OpenTerminal_ID,    {{Space, Space, Space, Space, 0xBFAA, 0xCFF2, 0xD6D5, 0xB6CB}, {Space, Space, 0x46, 0x75, 0x6C, 0x6C, 0x20, 0x4F, 0x70, 0x65, 0x6E, 0x20, 0x50, 0x6F, 0x73}},
-  DummyFunction, StandardMenu_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
-
-  //-关向终端(Full Shut Pos)-
-  {3,             InvalidMenuID,         Page_ShutTerminal_ID,    {{Space, Space, Space, Space, 0xB9D8, 0xCFF2, 0xD6D5, 0xB6CB}, {Space, Space, 0x46, 0x75, 0x6C, 0x6C, 0x20, 0x53, 0x68, 0x75, 0x74, 0x20, 0x50, 0x6F, 0x73}},
-  DummyFunction, StandardMenu_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
-};
-
-//-第4个初始值代表菜单项个数,必须给正确的值-
-MenuPara      MenuPara_Terminal = {2, 2, 4, 4, Multiplex_None, StandardMenu_Reset0};
-
-
-/*------------------关向终端-------------------------------*/
-const MenuStructure Menu_ShutTerminal[] = 
-{
-  /*-索引号       父菜单                 子菜单                   菜单项名称-*/
-  //-参数设置(Para Set)-
-  {0,             Page_Terminal_ID,     InvalidMenuID,           {{0xB2CE, 0xCAFD, 0xC9E8, 0xD6C3}, {0x50, 0x61, 0x72, 0x61, 0x20, 0x53, 0x65, 0x74}},
-  ValvePos_Special, ShutTerminal_SetKey, DummyFunction, DummyFunction, ShutTerminal_IncKey, ShutTerminal_DecKey},
-
-  //-终端位置(Tmn Pos)-
-  {1,             InvalidMenuID,         InvalidMenuID,           {{0xD6D5, 0xB6CB, 0xCEBB, 0xD6C3}, {0x54, 0x6D, 0x6E, 0x20, 0x50, 0x6F, 0x73}},
-  DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-请开到0%(Open To 0%)-
-  {2,             InvalidMenuID,         InvalidMenuID,           {{0xC7EB, 0xBFAA, 0xB5BD, Space, 0xA3B0, 0xA3A5}, {0x4F, 0x70, 0x65, 0x6E, 0x20, 0x54, 0x6F, 0x20, 0x30, 0x25}},
-  DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-按OK确定(Confirm By OK)-
-  {3,             InvalidMenuID,         InvalidMenuID,           {{Space, Space, Space, Space, 0xB0B4, 0xA3CF, 0xA3CB, 0xC8B7, 0xB6A8}, {0x43, 0x6F, 0x6E, 0x66, 0x69, 0x72, 0x6D, 0x20, 0x42, 0x79, 0x20, 0x4F, 0x4B}},
-  DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-};
-
-//-第4个初始值代表菜单项个数,必须给正确的值-
-MenuPara      MenuPara_ShutTerminal = {0, 0, 4, 4, Multiplex_Adjust, StandardMenu_Reset0};
+  {2,             InvalidMenuID,           InvalidMenuID,         {0},
+   AdjustZeroFull_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
+  
+  //-确认  返回-
+  {3,             Page_MainMenu_ID,        InvalidMenuID,         {0xA3A0, 0xA3A0, 0xA3A0, 0xC8B7, 0xC8CF, 0xA3A0, 0xA3A0, 0xB7B5, 0xBBD8},
+   AdjustZeroFull_Special, AdjustZeroFull_SetKey, AdjustZeroFull_UpKey, AdjustZeroFull_DownKey, DummyFunction, DummyFunction},
+};   
+   
+//-第6个初始值代表菜单项个数,必须给正确的值-
+MenuPara      MenuPara_AdjustZero = {3, 3, Disable, Enable, 4, 4, Multiplex_None, StandardMenu_Reset1};    
 
 
 /*---------------------标定0%提示信息---------------------------------------*/
@@ -552,49 +276,49 @@ const MenuStructure Menu_AdjustZeroInfo[] =
 {
   /*-索引号       父菜单                 子菜单                   菜单项名称-*/
   //--
-  {0,             Page_Terminal_ID,        InvalidMenuID,           {0},
-   DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
+  {0,             Page_MainMenu_ID,        InvalidMenuID,         {0},
+   Dummy_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
   
   //-已把当前位置-
-  {1,             InvalidMenuID,           InvalidMenuID,           {0xA3A0, 0xA3A0, 0xD2D1, 0xB0D1, 0xB5B1, 0xC7B0, 0xCEBB, 0xD6C3},
-   DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
+  {1,             InvalidMenuID,           InvalidMenuID,         {0xA3A0, 0xA3A0, 0xD2D1, 0xB0D1, 0xB5B1, 0xC7B0, 0xCEBB, 0xD6C3},
+   Dummy_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
   
   //-成功标定为0%-
-  {2,             InvalidMenuID,           InvalidMenuID,           {0xA3A0, 0xA3A0, 0xB3C9, 0xB9A6, 0xB1EA, 0xB6A8, 0xCEAA, 0xA3B0, 0xA3A5},
-   DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
+  {2,             InvalidMenuID,           InvalidMenuID,         {0xA3A0, 0xA3A0, 0xB3C9, 0xB9A6, 0xB1EA, 0xB6A8, 0xCEAA, 0xA3B0, 0xA3A5},
+   Dummy_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
   
   //--
-  {3,             Page_Terminal_ID,        InvalidMenuID,           {0},
-   DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
+  {3,             Page_MainMenu_ID,        InvalidMenuID,         {0},
+   Dummy_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
 };   
 
 //-第6个初始值代表菜单项个数,必须给正确的值-
-MenuPara      MenuPara_AdjustZeroInfo = {0, 0, 4, 4, Multiplex_None, StandardMenu_Reset0};
+MenuPara      MenuPara_AdjustZeroInfo = {0, Invalid, Disable, Disable, Invalid, 4, Multiplex_None, Dummy_Reset};
 
 
-/*------------------开向终端()-------------------------------*/
-const MenuStructure Menu_OpenTerminal[] = 
+/*---------------------标定满点-----------------------------------------------*/
+const MenuStructure Menu_AdjustFull[] = 
 {
   /*-索引号       父菜单                 子菜单                   菜单项名称-*/
-  //-参数设置(Para Set)-
-  {0,             Page_Terminal_ID,      InvalidMenuID,           {{0xB2CE, 0xCAFD, 0xC9E8, 0xD6C3}, {0x50, 0x61, 0x72, 0x61, 0x20, 0x53, 0x65, 0x74}},
-  ValvePos_Special, OpenTerminal_SetKey, DummyFunction, DummyFunction, OpenTerminal_IncKey, OpenTerminal_DecKey},
+  //-把当前位置#0-
+  {0,             Page_MainMenu_ID,       InvalidMenuID,         {0xB0D1, 0xB5B1, 0xC7B0, 0xCEBB, 0xD6C3, 0xA3A3},
+   AdjustZeroFull_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
+  
+  //-标定为100%-
+  {1,             InvalidMenuID,           InvalidMenuID,         {0xA3A0, 0xA3A0, 0xA3A0, 0xA3A0, 0xB1EA, 0xB6A8, 0xCEAA,0xA3B1, 0xA3B0, 0xA3B0,0xA3A5},
+   AdjustZeroFull_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
+  
+  //--
+  {2,             InvalidMenuID,           InvalidMenuID,         {0},
+   AdjustZeroFull_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
+  
+  //-确认  返回-
+  {3,             Page_MainMenu_ID,        InvalidMenuID,         {0xA3A0, 0xA3A0, 0xA3A0, 0xC8B7, 0xC8CF, 0xA3A0, 0xA3A0, 0xB7B5, 0xBBD8},
+   AdjustZeroFull_Special, AdjustZeroFull_SetKey, AdjustZeroFull_UpKey, AdjustZeroFull_DownKey, DummyFunction, DummyFunction},
+};   
 
-  //-终端位置(Tmn Pos)-
-  {1,             InvalidMenuID,         InvalidMenuID,           {{0xD6D5, 0xB6CB, 0xCEBB, 0xD6C3}, {0x54, 0x6D, 0x6E, 0x20, 0x50, 0x6F, 0x73}},
-  DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-请开到100%(Open To 100%)-
-  {2,             InvalidMenuID,         InvalidMenuID,           {{0xC7EB, 0xBFAA, 0xB5BD, Space, 0xA3B1, 0xA3B0, 0xA3B0, 0xA3A5}, {0x4F, 0x70, 0x65, 0x6E, 0x20, 0x54, 0x6F, 0x20, 0x31, 0x30, 0x30, 0x25}},
-  DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-按OK确定(Confirm By OK)-
-  {3,             InvalidMenuID,         InvalidMenuID,           {{Space, Space, Space, Space, 0xB0B4, 0xA3CF, 0xA3CB, 0xC8B7, 0xB6A8}, {Space, 0x43, 0x6F, 0x6E, 0x66, 0x69, 0x72, 0x6D, 0x20, 0x42, 0x79, 0x20, 0x4F, 0x4B}},
-  DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-};
-
-//-第4个初始值代表菜单项个数,必须给正确的值-
-MenuPara      MenuPara_OpenTerminal = {0, 0, 4, 4, Multiplex_Adjust, StandardMenu_Reset0};
+//-第6个初始值代表菜单项个数,必须给正确的值-
+MenuPara      MenuPara_AdjustFull = {3, 3, Disable, Enable, 4, 4, Multiplex_None, StandardMenu_Reset1};  
 
 
 /*---------------------标定100%提示信息---------------------------------------*/
@@ -602,840 +326,495 @@ const MenuStructure Menu_AdjustFullInfo[] =
 {
   /*-索引号       父菜单                 子菜单                   菜单项名称-*/
   //--
-  {0,             InvalidMenuID,           InvalidMenuID,           {0},
-   DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
+  {0,             Page_MainMenu_ID,        InvalidMenuID,         {0},
+   Dummy_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
   
   //-已把当前位置-
-  {1,             InvalidMenuID,           InvalidMenuID,           {0xA3A0, 0xA3A0, 0xD2D1, 0xB0D1, 0xB5B1, 0xC7B0, 0xCEBB, 0xD6C3},
-   DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
+  {1,             InvalidMenuID,           InvalidMenuID,         {0xA3A0, 0xA3A0, 0xD2D1, 0xB0D1, 0xB5B1, 0xC7B0, 0xCEBB, 0xD6C3},
+   Dummy_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
   
   //-成功标定为100%-
-  {2,             InvalidMenuID,           InvalidMenuID,           {0xA3A0, 0xA3A0, 0xB3C9, 0xB9A6, 0xB1EA, 0xB6A8, 0xCEAA, 0xA3B1, 0xA3B0, 0xA3B0, 0xA3A5},
-   DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
+  {2,             InvalidMenuID,           InvalidMenuID,         {0xA3A0, 0xA3A0, 0xB3C9, 0xB9A6, 0xB1EA, 0xB6A8, 0xCEAA, 0xA3B1, 0xA3B0, 0xA3B0, 0xA3A5},
+   Dummy_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
   
   //--
-  {3,             InvalidMenuID,           InvalidMenuID,           {0},
-   DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
+  {3,             InvalidMenuID,           InvalidMenuID,         {0},
+   Dummy_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
 };   
 
 //-第6个初始值代表菜单项个数,必须给正确的值-
-MenuPara      MenuPara_AdjustFullInfo = {0, 0, 4, 4, Multiplex_None, StandardMenu_Reset0};   
+MenuPara      MenuPara_AdjustFullInfo = {0, Invalid, Disable, Disable, Invalid, 4, Multiplex_None, Dummy_Reset};   
 
 
-/*------------------故障反馈触点-------------------------------*/
-const MenuStructure Menu_ErrorFeedBack[] = 
+/*---------------------现场设置-----------------------------------------------*/
+const MenuStructure Menu_LocalMode[] = 
 {
   /*-索引号       父菜单                 子菜单                   菜单项名称-*/
-  //-参数设置(Para Set)-
-  {0,             Page_ParaSetting_ID,   InvalidMenuID,           {{0xB2CE, 0xCAFD, 0xC9E8, 0xD6C3}, {0x50, 0x61, 0x72, 0x61, 0x20, 0x53, 0x65, 0x74}},
-  Opening_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-I/O参数(I/O Para)-
-  {1,             InvalidMenuID,         InvalidMenuID,           {{0xA3C9, 0xA3AF, 0xA3CF, 0xB2CE, 0xCAFD}, {0x49, 0x2F, 0x4F, 0x20, 0x50, 0x61, 0x72, 0x61}},
-  DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-故障反馈触点(Fault FeedBack)-
-  {2,             InvalidMenuID,         InvalidMenuID,           {{0xB9CA, 0xD5CF, 0xB7B4, 0xC0A1, 0xB4A5, 0xB5E3}, {0x46, 0x61, 0x75, 0x6C, 0x74, 0x20, 0x46, 0x65, 0x65, 0x64, 0x42, 0x61, 0x63, 0x6B}},
-  DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-  常开(NO)-
-  {3,             InvalidMenuID,         Page_RemoteHold_ID,      {{Space, Space, 0xB3A3, 0xBFAA}, {Space, Space, 0x4E, 0x4F}},
-  DummyFunction, ErrorFeedBack_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
-
-  //-          常闭(NC)-
-  {3,             InvalidMenuID,         Page_RemoteHold_ID,      {{Space, Space, Space, Space, Space, Space, Space, Space, Space, Space, 0xB3A3, 0xB1D5}, {Space, Space, Space, Space, Space, Space, Space, Space, Space, Space, 0x4E, 0x43}},
-  DummyFunction, ErrorFeedBack_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
-};
-
-//-第4个初始值代表菜单项个数,必须给正确的值-
-MenuPara      MenuPara_ErrorFeedBack = {3, 3, 4, 5, Multiplex_None, ErrorFeedBack_Reset};
-
-
-/*------------------远程保持-------------------------------*/
-const MenuStructure Menu_RemoteHold[] = 
-{
-  /*-索引号       父菜单                 子菜单                   菜单项名称-*/
-  //-参数设置(Para Set)-
-  {0,             Page_ParaSetting_ID,   InvalidMenuID,           {{0xB2CE, 0xCAFD, 0xC9E8, 0xD6C3}, {0x50, 0x61, 0x72, 0x61, 0x20, 0x53, 0x65, 0x74}},
-  Opening_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-I/O参数(I/O Para)-
-  {1,             InvalidMenuID,         InvalidMenuID,           {{0xA3C9, 0xA3AF, 0xA3CF, 0xB2CE, 0xCAFD}, {0x49, 0x2F, 0x4F, 0x20, 0x50, 0x61, 0x72, 0x61}},
-  DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-远程保持(Remote Hold)-
-  {2,             InvalidMenuID,         InvalidMenuID,           {{0xD4B6, 0xB3CC, 0xB1A3, 0xB3D6}, {0x52, 0x65, 0x6D, 0x6F, 0x74, 0x65, 0x20, 0x48, 0x6F, 0x6C, 0x64}},
-  DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-  常开(NO)-
-  {3,             Page_ParaSetting_ID,   InvalidMenuID,           {{Space, Space, 0xB3A3, 0xBFAA}, {Space, Space, 0x4E, 0x4F}},
-  DummyFunction, RemoteHold_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
-
-  //-          常闭(NC)-
-  {3,             Page_ParaSetting_ID,   InvalidMenuID,           {{Space, Space, Space, Space, Space, Space, Space, Space, Space, Space, 0xB3A3, 0xB1D5}, {Space, Space, Space, Space, Space, Space, Space, Space, Space, Space, 0x4E, 0x43}},
-  DummyFunction, RemoteHold_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
-};
-
-//-第4个初始值代表菜单项个数,必须给正确的值-
-MenuPara      MenuPara_RemoteHold = {3, 3, 4, 5, Multiplex_None, RemoteHold_Reset};
-
-
-/*------------------ 控制-------------------------------*/
-const MenuStructure Menu_Control[] = 
-{
-  /*-索引号       父菜单                 子菜单                   菜单项名称-*/
-  //-参数设置(Para Set)-
-  {0,             Page_ParaSetting_ID,   InvalidMenuID,           {{0xB2CE, 0xCAFD, 0xC9E8, 0xD6C3}, {0x50, 0x61, 0x72, 0x61, 0x20, 0x53, 0x65, 0x74}},
-  Opening_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-    现场控制(Local)-
-  {1,             InvalidMenuID,         Page_Local_ID,           {{Space, Space, Space, 0xCFD6, 0xB3A1, 0xBFD8, 0xD6C6}, {Space, Space, Space, Space, 0x4C, 0x6F, 0x63, 0x61, 0x6C}},
-  DummyFunction, StandardMenu_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
-
-  //-    远程开关控制(Remote IO)-
-  {2,             InvalidMenuID,         Page_RemoteIO_ID,        {{Space, Space, Space, 0xD4B6, 0xB3CC, 0xBFAA, 0xB9D8, 0xBFD8, 0xD6C6}, {Space, Space, Space, Space, 0x52, 0x65, 0x6D, 0x6F, 0x74, 0x65, 0x20, 0x49, 0x4F}},
-  DummyFunction, StandardMenu_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
+  //-现场点动控制-
+  {0,             Page_MainMenu_ID,        InvalidMenuID,           {0xCFD6, 0xB3A1, 0xB5E3, 0xB6AF, 0xBFD8, 0xD6C6},
+  LocalMode_Special, LocalMode_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
   
-  //-    远程模拟控制(Remote AN)-
-  {3,             InvalidMenuID,         Page_RemoteAN_ID,        {{Space, Space, Space, 0xD4B6, 0xB3CC, 0xC4A3, 0xC4E2, 0xBFD8, 0xD6C6}, {Space, Space, Space, Space, 0x52, 0x65, 0x6D, 0x6F, 0x74, 0x65, 0x20, 0x41, 0x4E}},
-  DummyFunction, StandardMenu_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
-};
-
-//-第4个初始值代表菜单项个数,必须给正确的值-
-MenuPara      MenuPara_Control = {1, 1, 4, 4, Multiplex_None, StandardMenu_Reset0};
-
-
-/*------------------现场控制-------------------------------*/
-const MenuStructure Menu_Local[] = 
-{
-  /*-索引号       父菜单                 子菜单                   菜单项名称-*/
-  //-参数设置(Para Set)-
-  {0,             Page_Control_ID,       InvalidMenuID,           {{0xB2CE, 0xCAFD, 0xC9E8, 0xD6C3}, {0x50, 0x61, 0x72, 0x61, 0x20, 0x53, 0x65, 0x74}},
-  Opening_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-控制参数(Control Para)-
-  {1,             InvalidMenuID,         InvalidMenuID,           {{0xBFD8, 0xD6C6, 0xB2CE, 0xCAFD}, {0x43, 0x6F, 0x6E, 0x74, 0x72, 0x6F, 0x6C, 0x20, 0x50, 0x61, 0x72, 0x61}},
-  DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-现场控制(Local Mode)-
-  {2,             InvalidMenuID,         InvalidMenuID,           {{0xCFD6, 0xB3A1, 0xBFD8, 0xD6C6}, {0x4C, 0x6F, 0x63, 0x61, 0x6C, 0x20, 0x4D, 0x6F, 0x64, 0x65}},
-  DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-  点动(Jog)-
-  {3,             Page_Control_ID,       InvalidMenuID,           {{Space, Space, 0xB5E3, 0xB6AF}, {Space, Space, 0x4A, 0x6F, 0x67}},
-  DummyFunction, Local_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
-
-  //-          保持(Hold)-
-  {3,             Page_Control_ID,       InvalidMenuID,           {{Space, Space, Space, Space, Space, Space, Space, Space, Space, Space, 0xB1A3, 0xB3D6}, {Space, Space, Space, Space, Space, Space, Space, Space, Space, Space, 0x48, 0x6F, 0x6C, 0x64}},
-  DummyFunction, Local_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
-};
-
-//-第4个初始值代表菜单项个数,必须给正确的值-
-MenuPara      MenuPara_Local = {3, 3, 4, 5, Multiplex_None, Local_Reset};
-
-
-/*------------------远程开关控制-------------------------------*/
-const MenuStructure Menu_RemoteIO[] = 
-{
-  /*-索引号       父菜单                 子菜单                   菜单项名称-*/
-  //-参数设置(Para Set)-
-  {0,             Page_Control_ID,       InvalidMenuID,           {{0xB2CE, 0xCAFD, 0xC9E8, 0xD6C3}, {0x50, 0x61, 0x72, 0x61, 0x20, 0x53, 0x65, 0x74}},
-  Opening_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-远程开关控制(Remote IO)-
-  {1,             InvalidMenuID,         InvalidMenuID,           {{0xD4B6, 0xB3CC, 0xBFAA, 0xB9D8, 0xBFD8, 0xD6C6}, {0x52, 0x65, 0x6D, 0x6F, 0x74, 0x65, 0x20, 0x49, 0x4F}},
-  DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-  点动(Jog)-
-  {2,             Page_Control_ID,         InvalidMenuID,         {{Space, Space, 0xB5E3, 0xB6AF}, {Space, Space, 0x4A, 0x6F, 0x67}},
-  DummyFunction, RemoteIO_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
-
-  //-  保持(Hold)-
-  {3,             Page_Control_ID,         InvalidMenuID,         {{Space, Space, 0xB1A3, 0xB3D6}, {Space, Space, 0x48, 0x6F, 0x6C, 0x64}},
-  DummyFunction, RemoteIO_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
-
-  //-          有信开(Open-Sig)-
-  {2,             Page_Control_ID,         InvalidMenuID,         {{Space, Space, Space, Space, Space, Space, Space, Space, Space, Space,0xD3D0, 0xD0C5, 0xBFAA}, {Space, Space, Space, Space, Space, Space, Space, Space, 0x4F, 0x70, 0x65, 0x6E, 0x2D, 0x53, 0x69, 0x67}},
-  DummyFunction, RemoteIO_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
-
-  //-          有信关(Shut-Sig)-
-  {3,             Page_Control_ID,         InvalidMenuID,         {{Space, Space, Space, Space, Space, Space, Space, Space, Space, Space, 0xD3D0, 0xD0C5, 0xB9D8}, {Space, Space, Space, Space, Space, Space, Space, Space, 0x53, 0x68, 0x75, 0x74, 0x2D, 0x53, 0x69, 0x67}},
-  DummyFunction, RemoteIO_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
-};
-
-//-第4个初始值代表菜单项个数,必须给正确的值-
-MenuPara      MenuPara_RemoteIO = {2, 2, 4, 6, Multiplex_None, RemoteIO_Reset};
-
-
-/*------------------远程模拟控制-------------------------------*/
-const MenuStructure Menu_RemoteAN[] = 
-{
-  /*-索引号       父菜单                 子菜单                   菜单项名称-*/
-  //-参数设置(Para Set)-
-  {0,             Page_Control_ID,       InvalidMenuID,           {{0xB2CE, 0xCAFD, 0xC9E8, 0xD6C3}, {0x50, 0x61, 0x72, 0x61, 0x20, 0x53, 0x65, 0x74}},
-  Opening_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-远程模拟控制(Remote AN)-
-  {1,             InvalidMenuID,         InvalidMenuID,           {{0xD4B6, 0xB3CC, 0xC4A3, 0xC4E2, 0xBFD8, 0xD6C6}, {0x52, 0x65, 0x6D, 0x6F, 0x74, 0x65, 0x20, 0x41, 0x4E}},
-  DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-  保持(Keep)-
-  {2,             Page_Control_ID,         InvalidMenuID,         {{Space, Space, 0xB1A3, 0xB3D6}, {Space, Space, 0x4B, 0x65, 0x65, 0x70}},
-  DummyFunction, RemoteAN_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
-
-  //-  全关(Shut)-
-  {3,             Page_Control_ID,         InvalidMenuID,         {{Space, Space, 0xC8AB, 0xB9D8}, {Space, Space, 0x53, 0x68, 0x75, 0x74}},
-  DummyFunction, RemoteAN_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
-
-  //-          居中(Middle)-
-  {2,             Page_Control_ID,         InvalidMenuID,         {{Space, Space, Space, Space, Space, Space, Space, Space, Space, Space, 0xBED3, 0xD6D0}, {Space, Space, Space, Space, Space, Space, Space, Space, Space, Space, 0x4D, 0x69, 0x64, 0x64, 0x6C, 0x65}},
-  DummyFunction, RemoteAN_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
-
-  //-          全开(Open)-
-  {3,             Page_Control_ID,         InvalidMenuID,         {{Space, Space, Space, Space, Space, Space, Space, Space, Space, Space, 0xC8AB, 0xBFAA}, {Space, Space, Space, Space, Space, Space, Space, Space, Space, Space, 0x4F, 0x70, 0x65, 0x6E}},
-  DummyFunction, RemoteAN_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
-};
-
-//-第4个初始值代表菜单项个数,必须给正确的值-
-MenuPara      MenuPara_RemoteAN = {2, 2, 4, 6, Multiplex_None, RemoteAN_Reset};
-
-
-/*------------------信号标定-------------------------------*/
-const MenuStructure Menu_ANSignal[] = 
-{
-  /*-索引号       父菜单                 子菜单                   菜单项名称-*/
-  //-参数设置(Para Set)-
-  {0,             Page_ParaSetting_ID,   InvalidMenuID,           {{0xB2CE, 0xCAFD, 0xC9E8, 0xD6C3}, {0x50, 0x61, 0x72, 0x61, 0x20, 0x53, 0x65, 0x74}},
-  Opening_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-信号标定(Signal Adjust)-
-  {1,             InvalidMenuID,         InvalidMenuID,           {{0xD0C5, 0xBAC5, 0xB1EA, 0xB6A8}, {0x53, 0x69, 0x67, 0x6E, 0x61, 0x6C, 0x20, 0x41, 0x64, 0x6A, 0x75, 0x73, 0x74}},
-  DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-  I4mA(I4mA)-
-  {2,             InvalidMenuID,         Page_In4mA_ID,           {{Space, Space, 0xA3C9, 0xA3B4, 0xA3ED, 0xA3C1}, {Space, Space, 0xA3C9, 0xA3B4, 0xA3ED, 0xA3C1}},
-  DummyFunction, StandardMenu_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
-
-  //-  I20mA(I20mA)-
-  {3,             InvalidMenuID,         Page_In20mA_ID,          {{Space, Space, 0xA3C9, 0xA3B2, 0xA3B0, 0xA3ED, 0xA3C1}, {Space, Space, 0xA3C9, 0xA3B2, 0xA3B0, 0xA3ED, 0xA3C1}},
-  DummyFunction, StandardMenu_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
-
-  //-          O4mA(O4mA)-
-  {2,             InvalidMenuID,         Page_Out4mA_ID,          {{Space, Space, Space, Space, Space, Space, Space, Space, Space, Space, Space, 0xA3CF, 0xA3B4, 0xA3ED, 0xA3C1}, {Space, Space, Space, Space, Space, Space, Space, Space, Space, Space, Space, 0xA3CF, 0xA3B4, 0xA3ED, 0xA3C1}},
-  DummyFunction, StandardMenu_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
-
-  //-          O20mA(O20mA)-
-  {3,             InvalidMenuID,         Page_Out20mA_ID,         {{Space, Space, Space, Space, Space, Space, Space, Space, Space, Space, Space, 0xA3CF,  0xA3B2, 0xA3B0, 0xA3ED, 0xA3C1}, {Space, Space, Space, Space, Space, Space, Space, Space, Space, Space, Space, 0xA3CF,  0xA3B2, 0xA3B0, 0xA3ED, 0xA3C1}},
-  DummyFunction, StandardMenu_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
-
-
-};
-
-//-第4个初始值代表菜单项个数,必须给正确的值-
-MenuPara      MenuPara_ANSignal = {2, 2, 4, 6, Multiplex_None, StandardMenu_Reset0};
-
-
-/*------------------输入4mA-------------------------------*/
-const MenuStructure Menu_In4mA[] = 
-{
-  /*-索引号       父菜单                 子菜单                   菜单项名称-*/
-  //-参数设置(Para Set)-
-  {0,             Page_ANSignal_ID,      InvalidMenuID,           {{0xB2CE, 0xCAFD, 0xC9E8, 0xD6C3}, {0x50, 0x61, 0x72, 0x61, 0x20, 0x53, 0x65, 0x74}},
-  Opening_Special, In4mA_SetKey, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-In4mA(In4mA)-
-  {1,             InvalidMenuID,         InvalidMenuID,           {{0xA3C9, 0xA3EE, 0xA3B4, 0xA3ED, 0xA3C1}, {0xA3C9, 0xA3EE, 0xA3B4, 0xA3ED, 0xA3C1}},
-  DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-把当前输入xx.xmA(Adjust In XX.XmA)-
-  {2,             InvalidMenuID,         InvalidMenuID,           {{0xB0D1, 0xB5B1, 0xC7B0, 0xCAE4, 0xC8EB}, {0x41, 0x64, 0x6A, 0x75, 0x73, 0x74, 0x20, 0x49, 0x6E, 0x20}},
-  In4_20mA_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-  标定为0%(To 0%)-
-  {3,             InvalidMenuID,         InvalidMenuID,           {{Space, Space, 0xB1EA, 0xB6A8, 0xCEAA, 0xA3B0, 0xA3A5}, {Space, Space, 0x54, 0x6F, 0x20, 0x30, 0x25}},
-  DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-};
-
-//-第4个初始值代表菜单项个数,必须给正确的值-
-MenuPara      MenuPara_In4mA = {0, 0, 4, 4, Multiplex_None, StandardMenu_Reset0};
-
-
-/*---------------------输入电流标定4mA提示信息---------------------------------------*/
-const MenuStructure Menu_In4mAInfo[] = 
-{
-  /*-索引号       父菜单                 子菜单                   菜单项名称-*/
-  //--
-  {0,             Page_ANSignal_ID,        InvalidMenuID,           {0},
-   DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-  
-  //-已把当前电流-
-  {1,             InvalidMenuID,           InvalidMenuID,           {0xA3A0, 0xA3A0, 0xD2D1, 0xB0D1, 0xB5B1, 0xC7B0, 0xB5E7, 0xC1F7},
-   DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-  
-  //-成功标定为0%-
-  {2,             InvalidMenuID,           InvalidMenuID,           {0xA3A0, 0xA3A0, 0xB3C9, 0xB9A6, 0xB1EA, 0xB6A8, 0xCEAA, 0xA3B0, 0xA3A5},
-   DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-  
-  //--
-  {3,             InvalidMenuID,           InvalidMenuID,           {0},
-   DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
+  //-现场保持控制-
+  {1,             InvalidMenuID,           InvalidMenuID,           {0xCFD6, 0xB3A1, 0xB1A3, 0xB3D6, 0xBFD8, 0xD6C6},
+  LocalMode_Special, LocalMode_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
+ 
+  //-返回上级-
+  {2,             Page_MainMenu_ID,        InvalidMenuID,           {0xB7B5, 0xBBD8,0xC9CF, 0xBCB6},
+  Dummy_Special, StandardMenu_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction}
 };   
 
 //-第6个初始值代表菜单项个数,必须给正确的值-
-MenuPara      MenuPara_In4mAInfo = {0, 0, 4, 4, Multiplex_None, StandardMenu_Reset0};
+MenuPara      MenuPara_LocalMode = {0, Invalid, Enable, Disable, Invalid, 3, Multiplex_None, StandardMenu_Reset0};    
 
 
-/*------------------输入20mA-------------------------------*/
-const MenuStructure Menu_In20mA[] = 
+/*---------------------远程开关型设置-----------------------------------------*/
+const MenuStructure Menu_RemoteIOMode[] = 
 {
   /*-索引号       父菜单                 子菜单                   菜单项名称-*/
-  //-参数设置(Para Set)-
-  {0,             Page_ANSignal_ID,      InvalidMenuID,           {{0xB2CE, 0xCAFD, 0xC9E8, 0xD6C3}, {0x50, 0x61, 0x72, 0x61, 0x20, 0x53, 0x65, 0x74}},
-  Opening_Special, In20mA_SetKey, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-In20mA(In20mA)-
-  {1,             InvalidMenuID,         InvalidMenuID,           {{0xA3C9, 0xA3EE, 0xA3B2, 0xA3B0, 0xA3ED, 0xA3C1}, {0xA3C9, 0xA3EE, 0xA3B2, 0xA3B0, 0xA3ED, 0xA3C1}},
-  DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-把当前输入xx.xmA(Adjust In XX.XmA)-
-  {2,             InvalidMenuID,         InvalidMenuID,           {{0xB0D1, 0xB5B1, 0xC7B0, 0xCAE4, 0xC8EB}, {0x41, 0x64, 0x6A, 0x75, 0x73, 0x74, 0x20, 0x49, 0x6E, 0x20}},
-  In4_20mA_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-标定为100%(To 100%)-
-  {3,             InvalidMenuID,         InvalidMenuID,           {{Space, Space, 0xB1EA, 0xB6A8, 0xCEAA, 0xA3B1, 0xA3B0, 0xA3B0, 0xA3A5}, {Space, Space, 0x54, 0x6F, 0x20, 0x31, 0x30, 0x30, 0x25}},
-  DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-};
-
-//-第4个初始值代表菜单项个数,必须给正确的值-
-MenuPara      MenuPara_In20mA = {0, 0, 4, 4, Multiplex_None, StandardMenu_Reset0};
-
-
-/*---------------------输入20mA标定提示信息---------------------------------------*/
-const MenuStructure Menu_In20mAInfo[] = 
-{
-  /*-索引号       父菜单                 子菜单                   菜单项名称-*/
-  //--
-  {0,             Page_ANSignal_ID,        InvalidMenuID,           {0},
-   DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-  
-  //-已把当前电流-
-  {1,             InvalidMenuID,           InvalidMenuID,           {0xA3A0, 0xA3A0, 0xD2D1, 0xB0D1, 0xB5B1, 0xC7B0, 0xB5E7, 0xC1F7},
-   DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-  
-  //-成功标定为100%-
-  {2,             InvalidMenuID,           InvalidMenuID,           {0xA3A0, 0xA3A0, 0xB3C9, 0xB9A6, 0xB1EA, 0xB6A8, 0xCEAA, 0xA3B1, 0xA3B0, 0xA3B0, 0xA3A5},
-   DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-  
-  //--
-  {3,             InvalidMenuID,           InvalidMenuID,           {0},
-   DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-};   
-
-//-第6个初始值代表菜单项个数,必须给正确的值-
-MenuPara      MenuPara_In20mAInfo = {0, 0, 4, 4, Multiplex_None, StandardMenu_Reset0};  
-
-
-/*------------------输出4mA-------------------------------*/
-const MenuStructure Menu_Out4mA[] = 
-{
-  /*-索引号       父菜单                 子菜单                   菜单项名称-*/
-  //-参数设置(Para Set)-
-  {0,             Page_ANSignal_ID,      InvalidMenuID,           {{0xB2CE, 0xCAFD, 0xC9E8, 0xD6C3}, {0x50, 0x61, 0x72, 0x61, 0x20, 0x53, 0x65, 0x74}},
-  Opening_Special, In20mA_SetKey, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-Out4mA(Out4mA)-
-  {1,             InvalidMenuID,         InvalidMenuID,           {{0xA3CF, 0xA3F5, 0xA3F4, 0xA3B4, 0xA3ED, 0xA3A3C1}, {0xA3CF, 0xA3F5, 0xA3F4, 0xA3B4, 0xA3ED, 0xA3A3C1}},
-  DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-增大: 按打开键(Increas:Open Key)-
-  {2,             InvalidMenuID,         InvalidMenuID,           {{0xD4F6, 0xB4F3, 0xA3BA, 0xB0B4, 0xB4F2, 0xBFAA, 0xBCFC}, {0x49, 0x6E, 0x63, 0x72, 0x65, 0x61, 0x73, 0x3A, 0x4F, 0x70, 0x65, 0x6E, 0x20, 0x4B, 0x65, 0x79}},
-  DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-减小: 按关闭键(Decreas:Shut Key)-
-  {3,             Page_ANSignal_ID,      InvalidMenuID,           {{0xBCF5, 0xD0A1, 0xA3BA, 0xB0B4, 0xB9D8, 0xB1D5, 0xBCFC}, {0x44, 0x65, 0x63, 0x72, 0x65, 0x61, 0x73, 0x3A, 0x53, 0x68, 0x75, 0x74, 0x20, 0x4B, 0x65, 0x79}},
-  DummyFunction, Out4mA_SetKey, DummyFunction, DummyFunction, Out4mA_IncKey, Out4mA_DecKey},
-};
-
-//-第4个初始值代表菜单项个数,必须给正确的值-
-MenuPara      MenuPara_Out4mA = {3, 3, 4, 4, Multiplex_Adjust, StandardMenu_Reset0};
-
-
-/*------------------输出20mA-------------------------------*/
-const MenuStructure Menu_Out20mA[] = 
-{
-  /*-索引号       父菜单                 子菜单                   菜单项名称-*/
-  //-参数设置(Para Set)-
-  {0,             Page_ANSignal_ID,      InvalidMenuID,           {{0xB2CE, 0xCAFD, 0xC9E8, 0xD6C3}, {0x50, 0x61, 0x72, 0x61, 0x20, 0x53, 0x65, 0x74}},
-  Opening_Special, In20mA_SetKey, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-Out20mA(Out20mA)-
-  {1,             InvalidMenuID,         InvalidMenuID,           {{0xA3CF, 0xA3F5, 0xA3F4, 0xA3B2, 0xA3B0, 0xA3ED, 0xA3A3C1}, {0xA3CF, 0xA3F5, 0xA3F4, 0xA3B2, 0xA3B0, 0xA3ED, 0xA3A3C1}}, 
-  DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-增大: 按打开键(Increas:Open Key)-
-  {2,             InvalidMenuID,         InvalidMenuID,           {{0xD4F6, 0xB4F3, 0xA3BA, 0xB0B4, 0xB4F2, 0xBFAA, 0xBCFC}, {0x49, 0x6E, 0x63, 0x72, 0x65, 0x61, 0x73, 0x3A, 0x4F, 0x70, 0x65, 0x6E, 0x20, 0x4B, 0x65, 0x79}},
-  DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-减小: 按关闭键(Decreas:Shut Key)-
-  {3,             Page_ANSignal_ID,      InvalidMenuID,           {{0xBCF5, 0xD0A1, 0xA3BA, 0xB0B4, 0xB9D8, 0xB1D5, 0xBCFC}, {0x44, 0x65, 0x63, 0x72, 0x65, 0x61, 0x73, 0x3A, 0x53, 0x68, 0x75, 0x74, 0x20, 0x4B, 0x65, 0x79}},
-  DummyFunction, Out20mA_SetKey, DummyFunction, DummyFunction, Out20mA_IncKey, Out20mA_DecKey},
-};
-
-//-第4个初始值代表菜单项个数,必须给正确的值-
-MenuPara      MenuPara_Out20mA = {3, 3, 4, 4, Multiplex_Adjust, StandardMenu_Reset0};
-
-
-//------------------更改密码-------------------------------
-const MenuStructure Menu_ChangePassword[] = 
-{
-  //-索引号       父菜单                 子菜单                   菜单项名称-
-  //-参数设置(Para Set)-
-  {0,             Page_ParaSetting_ID,   InvalidMenuID,           {{0xB2CE, 0xCAFD, 0xC9E8, 0xD6C3}, {0x50, 0x61, 0x72, 0x61, 0x20, 0x53, 0x65, 0x74}},
-  Opening_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-其他参数(Other Para)-
-  {1,             InvalidMenuID,         InvalidMenuID,           {{0xC6E4, 0xCBFB, 0xB2CE, 0xCAFD}, {0x4F, 0x74, 0x68, 0x65, 0x72, 0x20, 0x50, 0x61, 0x72, 0x61}},
-  DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-密码修改(Change Pwd)-
-  {2,             InvalidMenuID,         InvalidMenuID,           {{0xC3DC, 0xC2EB, 0xD0DE, 0xB8C4}, {0x43, 0x68, 0x61, 0x6E, 0x67, 0x65, 0x20, 0x50, 0x77, 0x64}},
-  DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-* * *-
-  {3,             Page_ParaSetting_ID,    InvalidMenuID,           {0},
-  ChangePassword_Special, ChangePassword_SetKey, ChangePassword_UpKey, ChangePassword_DownKey, ChangePassword_IncKey, ChangePassword_DecKey},
-};
-
-//-第4个初始值代表菜单项个数,必须给正确的值-
-MenuPara      MenuPara_ChangePassword = {3, 3, 4, 4, Multiplex_Digit, StandardMenu_Reset0};
-
-
-/*------------------ 参数浏览-------------------------------*/
-const MenuStructure Menu_QueryPara[] = 
-{
-  /*-索引号       父菜单                 子菜单                   菜单项名称-*/
-  //-参数浏览(Para Query)-
-  {0,             Page_Language_ID,      InvalidMenuID,           {{0xB2CE, 0xCAFD, 0xE4AF, 0xC0C0}, {0x50, 0x61, 0x72, 0x61, 0x20, 0x51, 0x75, 0x65, 0x72, 0x79}},
-  Opening_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-  //-  基本(Basic)-
-  {1,             InvalidMenuID,         Page_QueryESDSetting_ID, {{Space, Space, 0xBBF9, 0xB1BE}, {Space, Space, 0x42, 0x61, 0x73, 0x69, 0x63}},
-  DummyFunction, StandardMenu_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
-
-  //-  I/O(I/O)-
-  {2,             InvalidMenuID,         Page_QueryErrorFeedBack_ID, {{Space, Space, 0xA3C9, 0xA3AF, 0xA3CF}, {Space, Space, 0xA3C9, 0xA3AF, 0xA3CF}},
-  DummyFunction, StandardMenu_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
-
-  //-      控制(Contrl)-
-  {3,             InvalidMenuID,         Page_QueryControl_ID,    {{Space, Space, 0xBFD8, 0xD6C6}, {Space, Space, 0x43, 0x6F, 0x6E, 0x74, 0x72, 0x6C}},
-  DummyFunction, StandardMenu_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
-
-  //-      故障(Error)-
-  {1,             InvalidMenuID,         Page_QueryError_ID,       {{Space, Space, Space, Space, Space, Space, Space, Space, Space, Space, 0xB9CA, 0xD5CF}, {Space, Space, Space, Space, Space, Space, Space, Space, Space, Space, 0x45, 0x72, 0x72, 0x6F, 0x72}},
-  DummyFunction, StandardMenu_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
-
-  //-      其他(Other)-
-  {2,             InvalidMenuID,         Page_QueryPassword_ID,   {{Space, Space, Space, Space, Space, Space, Space, Space, Space, Space, 0xC6E4, 0xCBFB}, {Space, Space, Space, Space, Space, Space, Space, Space, Space, Space, 0x4F, 0x74, 0x68, 0x65, 0x72}},
-  DummyFunction, StandardMenu_SetKey, StandardMenu_UpKey, StandardMenu_DownKey},
-};
-
-//-第4个初始值代表菜单项个数,必须给正确的值-
-MenuPara      MenuPara_QueryPara = {1, 1, 4, 6, Multiplex_None, StandardMenu_Reset0}; 
-
-
-/*------------------ ESD设置-------------------------------*/
-MenuStructure Menu_QueryESDSetting[] = 
-{
-  /*-索引号       父菜单                 子菜单                   菜单项名称-*/
-  //-参数浏览(Para Query)-
-  {0,             Page_ParaQuery_ID,   InvalidMenuID,             {{0xB2CE, 0xCAFD, 0xE4AF, 0xC0C0}, {0x50, 0x61, 0x72, 0x61, 0x20, 0x51, 0x75, 0x65, 0x72, 0x79}},
-  Opening_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-基本参数(Basic Para)-
-  {1,             InvalidMenuID,         InvalidMenuID,           {{0xBBF9, 0xB1BE, 0xB2CE, 0xCAFD}, {0x42, 0x61, 0x73, 0x69, 0x63, 0x20, 0x50, 0x61, 0x72, 0x61}},
-  DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-ESD设置(ESD Setting)-
-  {2,             InvalidMenuID,         InvalidMenuID,           {{0xA3C5, 0xA3D3, 0xA3C4, 0xC9E8, 0xD6C3}, {0x45, 0x53, 0x44, 0x20, 0x53, 0x65, 0x74, 0x74, 0x69, 0x6E, 0x67}},
-  DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-ESD禁用(ESD Disable)-
-  {3,             InvalidMenuID,         Page_QueryDeadZone_ID,   {{Space, Space, 0xA3C5, 0xA3D3, 0xA3C4, 0xBDFB, 0xD3C3}, {Space, Space, 0x45, 0x53, 0x44, 0x20, 0x44, 0x69, 0x73, 0x61, 0x62, 0x6C, 0x65}},
-  ESDSetting_Special, StandardMenu_SetKey, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-ESD禁止动作(ESD NoAction)-
-  {3,             InvalidMenuID,         Page_QueryDeadZone_ID,    {{Space, Space, 0xA3C5, 0xA3D3, 0xA3C4, 0xBDFB, 0xD6B9, 0xB6AF, 0xD7F7}, {Space, Space, 0x45, 0x53, 0x44, 0x20, 0x4E, 0x6F, 0x41, 0x63, 0x74, 0x69, 0x6F, 0x6E}},
-  ESDSetting_Special, StandardMenu_SetKey, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-ESD打开阀门(ESD Open)-
-  {3,             InvalidMenuID,         Page_QueryDeadZone_ID,    {{Space, Space, 0xA3C5, 0xA3D3, 0xA3C4, 0xB4F2, 0xBFAA, 0xB7A7, 0xC3C5}, {Space, Space, 0x45, 0x53, 0x44, 0x20, 0x4F, 0x70, 0x65, 0x6E}},
-  ESDSetting_Special, StandardMenu_SetKey, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-ESD关闭阀门(ESD Shut)-
-  {3,             InvalidMenuID,         Page_QueryDeadZone_ID,    {{Space, Space, 0xA3C5, 0xA3D3, 0xA3C4, 0xB9D8, 0xB1D5, 0xB7A7, 0xC3C5}, {Space, Space, 0x45, 0x53, 0x44, 0x20, 0x53, 0x68, 0x75, 0x74}},
-  ESDSetting_Special, StandardMenu_SetKey, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-ESD到中间位(ESD Middle)-
-  {3,             InvalidMenuID,         Page_QueryDeadZone_ID,    {{Space, Space, 0xA3C5, 0xA3D3, 0xA3C4, 0xB5BD, 0xD6D0, 0xBCE4, 0xCEBB}, {Space, Space, 0x45, 0x53, 0x44, 0x20, 0x4D, 0x69, 0x64, 0x64, 0x6C, 0x65}},
-  ESDSetting_Special, StandardMenu_SetKey, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-};
-
-//-第4个初始值代表菜单项个数,必须给正确的值-
-MenuPara      MenuPara_QueryESDSetting = {3, 3, 4, 7, Multiplex_None, ESDSetting_Reset};
-
-
-/*------------------死区-------------------------------*/
-const MenuStructure Menu_QueryDeadZone[] = 
-{
-  /*-索引号       父菜单                 子菜单                   菜单项名称-*/
-  //-参数浏览(Para Query)-
-  {0,             Page_ParaQuery_ID,   InvalidMenuID,           {{0xB2CE, 0xCAFD, 0xE4AF, 0xC0C0}, {0x50, 0x61, 0x72, 0x61, 0x20, 0x51, 0x75, 0x65, 0x72, 0x79}},
-  Opening_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-基本参数(Basic Para)-
-  {1,             InvalidMenuID,         InvalidMenuID,           {{0xBBF9, 0xB1BE, 0xB2CE, 0xCAFD}, {0x42, 0x61, 0x73, 0x69, 0x63, 0x20, 0x50, 0x61, 0x72, 0x61}},
-  DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-控制死区(DeadZone Set)-
-  {2,             InvalidMenuID,         InvalidMenuID,           {{0xBFD8, 0xD6C6, 0xCBC0, 0xC7F8}, {0x44, 0x65, 0x61, 0x64, 0x5A, 0x6F, 0x6E, 0x65, 0x20, 0x53, 0x65, 0x74}},
-  DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //--
-  {3,             InvalidMenuID,         Page_QueryOpenCurrent_ID,     {0},
-  DeadZone_Special, StandardMenu_SetKey, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-};
-
-//-第4个初始值代表菜单项个数,必须给正确的值-
-MenuPara      MenuPara_QueryDeadZone = {3, 3, 4, 4, Multiplex_Digit, StandardMenu_Reset0};
-
-
-/*------------------开向电流-------------------------------*/
-const MenuStructure Menu_QueryOpenCurrent[] = 
-{
-  /*-索引号       父菜单                 子菜单                   菜单项名称-*/
-  //-参数浏览(Para Query)-
-  {0,             Page_ParaQuery_ID,   InvalidMenuID,           {{0xB2CE, 0xCAFD, 0xE4AF, 0xC0C0}, {0x50, 0x61, 0x72, 0x61, 0x20, 0x51, 0x75, 0x65, 0x72, 0x79}},
-  Opening_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-基本参数(Basic Para)-
-  {1,             InvalidMenuID,         InvalidMenuID,           {{0xBBF9, 0xB1BE, 0xB2CE, 0xCAFD}, {0x42, 0x61, 0x73, 0x69, 0x63, 0x20, 0x50, 0x61, 0x72, 0x61}},
-  DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-最大开向电流(Max Open Current)-
-  {2,             InvalidMenuID,         InvalidMenuID,           {{0xD7EE, 0xB4F3, 0xBFAA, 0xCFF2, 0xB5E7, 0xC1F7}, {0x4D, 0x61, 0x78, 0x20, 0x4F, 0x70, 0x65, 0x6E, 0x20, 0x43, 0x75, 0x72, 0x72, 0x65, 0x6E, 0x74}},
-  DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //--
-  {3,             InvalidMenuID,         Page_QueryShutCurrent_ID,     {0},
-  OpenCurrent_Special, StandardMenu_SetKey, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-};
-
-//-第4个初始值代表菜单项个数,必须给正确的值-
-MenuPara      MenuPara_QueryOpenCurrent = {3, 3, 4, 4, Multiplex_Digit, StandardMenu_Reset0};
-
-
-/*------------------关向电流-------------------------------*/
-const MenuStructure Menu_QueryShutCurrent[] = 
-{
-  /*-索引号       父菜单                 子菜单                   菜单项名称-*/
-  //-参数浏览(Para Query)-
-  {0,             Page_ParaQuery_ID,   InvalidMenuID,           {{0xB2CE, 0xCAFD, 0xE4AF, 0xC0C0}, {0x50, 0x61, 0x72, 0x61, 0x20, 0x51, 0x75, 0x65, 0x72, 0x79}},
-  Opening_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-基本参数(Basic Para)-
-  {1,             InvalidMenuID,         InvalidMenuID,           {{0xBBF9, 0xB1BE, 0xB2CE, 0xCAFD}, {0x42, 0x61, 0x73, 0x69, 0x63, 0x20, 0x50, 0x61, 0x72, 0x61}},
-  DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-最大关向电流(Max Shut Current)-
-  {2,             InvalidMenuID,         InvalidMenuID,           {{0xD7EE, 0xB4F3, 0xB9D8, 0xCFF2, 0xB5E7, 0xC1F7}, {0x4D, 0x61, 0x78, 0x20, 0x53, 0x68, 0x75, 0x74, 0x20, 0x43, 0x75, 0x72, 0x72, 0x65, 0x6E, 0x74}},
-  DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //--
-  {3,             InvalidMenuID,         Page_QueryMaxActionTime_ID,   {0},
-  ShutCurrent_Special, StandardMenu_SetKey, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-};
-
-//-第4个初始值代表菜单项个数,必须给正确的值-
-MenuPara      MenuPara_QueryShutCurrent = {3, 3, 4, 4, Multiplex_Digit, StandardMenu_Reset0};
-
-
-/*------------------最大动作时间-------------------------------*/
-const MenuStructure Menu_QueryMaxActionTime[] = 
-{
-  /*-索引号       父菜单                 子菜单                   菜单项名称-*/
-  //-参数浏览(Para Query)-
-  {0,             Page_ParaQuery_ID,   InvalidMenuID,           {{0xB2CE, 0xCAFD, 0xE4AF, 0xC0C0}, {0x50, 0x61, 0x72, 0x61, 0x20, 0x51, 0x75, 0x65, 0x72, 0x79}},
-  Opening_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-基本参数(Basic Para)-
-  {1,             InvalidMenuID,         InvalidMenuID,           {{0xBBF9, 0xB1BE, 0xB2CE, 0xCAFD}, {0x42, 0x61, 0x73, 0x69, 0x63, 0x20, 0x50, 0x61, 0x72, 0x61}},
-  DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-最大开闭时间(Max Action Time)-
-  {2,             InvalidMenuID,         InvalidMenuID,           {{0xD7EE, 0xB4F3, 0xBFAA, 0xB1D5, 0xCAB1, 0xBCE4}, {0x4D, 0x61, 0x78, 0x20, 0x41, 0x63, 0x74, 0x69, 0x6F, 0x6E, 0x20, 0x54, 0x69, 0x6D, 0x65}},
-  DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //--
-  {3,             InvalidMenuID,         Page_QueryESDSetting_ID,      {0},
-  MaxActionTime_Special, StandardMenu_SetKey, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-};
-
-//-第4个初始值代表菜单项个数,必须给正确的值-
-MenuPara      MenuPara_QueryMaxActionTime = {3, 3, 4, 4, Multiplex_Digit, StandardMenu_Reset0};
-
-
-/*------------------故障反馈触点-------------------------------*/
-const MenuStructure Menu_QueryErrorFeedBack[] = 
-{
-  /*-索引号       父菜单                 子菜单                   菜单项名称-*/
-  //-参数浏览(Para Query)-
-  {0,             Page_ParaQuery_ID,   InvalidMenuID,           {{0xB2CE, 0xCAFD, 0xE4AF, 0xC0C0}, {0x50, 0x61, 0x72, 0x61, 0x20, 0x51, 0x75, 0x65, 0x72, 0x79}},
-  Opening_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-I/O参数(I/O Para)-
-  {1,             InvalidMenuID,         InvalidMenuID,           {{0xA3C9, 0xA3AF, 0xA3CF, 0xB2CE, 0xCAFD}, {0x49, 0x2F, 0x4F, 0x20, 0x50, 0x61, 0x72, 0x61}},
-  DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-故障反馈触点(Fault FeedBack)-
-  {2,             InvalidMenuID,         InvalidMenuID,           {{0xB9CA, 0xD5CF, 0xB7B4, 0xC0A1, 0xB4A5, 0xB5E3}, {0x46, 0x61, 0x75, 0x6C, 0x74, 0x20, 0x46, 0x65, 0x65, 0x64, 0x42, 0x61, 0x63, 0x6B}},
-  DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-  常开(NO)-
-  {3,             InvalidMenuID,         Page_QueryRemoteHold_ID,      {{Space, Space, 0xB3A3, 0xBFAA}, {Space, Space, 0x4E, 0x4F}},
-  DummyFunction, StandardMenu_SetKey, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-          常闭(NC)-
-  {3,             InvalidMenuID,         Page_QueryRemoteHold_ID,      {{Space, Space, Space, Space, Space, Space, Space, Space, Space, Space, 0xB3A3, 0xB1D5}, {Space, Space, Space, Space, Space, Space, Space, Space, Space, Space, 0x4E, 0x43}},
-  DummyFunction, StandardMenu_SetKey, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-};
-
-//-第4个初始值代表菜单项个数,必须给正确的值-
-MenuPara      MenuPara_QueryErrorFeedBack = {3, 3, 4, 5, Multiplex_None, ErrorFeedBack_Reset};
-
-
-/*------------------远程保持-------------------------------*/
-const MenuStructure Menu_QueryRemoteHold[] = 
-{
-  /*-索引号       父菜单                 子菜单                   菜单项名称-*/
-  //-参数浏览(Para Query)-
-  {0,             Page_ParaQuery_ID,   InvalidMenuID,           {{0xB2CE, 0xCAFD, 0xE4AF, 0xC0C0}, {0x50, 0x61, 0x72, 0x61, 0x20, 0x51, 0x75, 0x65, 0x72, 0x79}},
-  Opening_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-I/O参数(I/O Para)-
-  {1,             InvalidMenuID,         InvalidMenuID,           {{0xA3C9, 0xA3AF, 0xA3CF, 0xB2CE, 0xCAFD}, {0x49, 0x2F, 0x4F, 0x20, 0x50, 0x61, 0x72, 0x61}},
-  DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-远程保持(Remote Hold)-
-  {2,             InvalidMenuID,         InvalidMenuID,           {{0xD4B6, 0xB3CC, 0xB1A3, 0xB3D6}, {0x52, 0x65, 0x6D, 0x6F, 0x74, 0x65, 0x20, 0x48, 0x6F, 0x6C, 0x64}},
-  DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-  常开(NO)-
-  {3,             Page_ParaSetting_ID,   InvalidMenuID,           {{Space, Space, 0xB3A3, 0xBFAA}, {Space, Space, 0x4E, 0x4F}},
-  DummyFunction, StandardMenu_SetKey, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-          常闭(NC)-
-  {3,             Page_ParaSetting_ID,   InvalidMenuID,           {{Space, Space, Space, Space, Space, Space, Space, Space, Space, Space, 0xB3A3, 0xB1D5}, {Space, Space, Space, Space, Space, Space, Space, Space, Space, Space, 0x4E, 0x43}},
-  DummyFunction, StandardMenu_SetKey, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-};
-
-//-第4个初始值代表菜单项个数,必须给正确的值-
-MenuPara      MenuPara_QueryRemoteHold = {3, 3, 4, 5, Multiplex_None, RemoteHold_Reset};
-
-
-/*------------------ 控制-------------------------------*/
-const MenuStructure Menu_QueryControl[] = 
-{
-  /*-索引号       父菜单                 子菜单                   菜单项名称-*/
-  //-参数浏览(Para Query)-
-  {0,             Page_ParaQuery_ID,   InvalidMenuID,           {{0xB2CE, 0xCAFD, 0xE4AF, 0xC0C0}, {0x50, 0x61, 0x72, 0x61, 0x20, 0x51, 0x75, 0x65, 0x72, 0x79}},
-  Opening_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-    现场控制(Local)-
-  {1,             InvalidMenuID,         Page_QueryLocal_ID,    {{Space, Space, Space, 0xCFD6, 0xB3A1, 0xBFD8, 0xD6C6}, {Space, Space, Space, Space, 0x4C, 0x6F, 0x63, 0x61, 0x6C}},
-  DummyFunction, StandardMenu_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
-
-  //-    远程开关控制(Remote IO)-
-  {2,             InvalidMenuID,         Page_QueryRemoteIO_ID, {{Space, Space, Space, 0xD4B6, 0xB3CC, 0xBFAA, 0xB9D8, 0xBFD8, 0xD6C6}, {Space, Space, Space, Space, 0x52, 0x65, 0x6D, 0x6F, 0x74, 0x65, 0x20, 0x49, 0x4F}},
-  DummyFunction, StandardMenu_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
-  
-  //-    远程模拟控制(Remote AN)-
-  {3,             InvalidMenuID,         Page_QueryRemoteAN_ID, {{Space, Space, Space, 0xD4B6, 0xB3CC, 0xC4A3, 0xC4E2, 0xBFD8, 0xD6C6}, {Space, Space, Space, Space, 0x52, 0x65, 0x6D, 0x6F, 0x74, 0x65, 0x20, 0x41, 0x4E}},
-  DummyFunction, StandardMenu_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
-};
-
-//-第4个初始值代表菜单项个数,必须给正确的值-
-MenuPara      MenuPara_QueryControl = {1, 1, 4, 4, Multiplex_None, StandardMenu_Reset0};
-
-
-/*------------------现场控制-------------------------------*/
-const MenuStructure Menu_QueryLocal[] = 
-{
-  /*-索引号       父菜单                 子菜单                   菜单项名称-*/
-  //-参数浏览(Para Query)-
-  {0,             Page_QueryControl_ID,   InvalidMenuID,           {{0xB2CE, 0xCAFD, 0xE4AF, 0xC0C0}, {0x50, 0x61, 0x72, 0x61, 0x20, 0x51, 0x75, 0x65, 0x72, 0x79}},
-  Opening_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-控制参数(Control Para)-
-  {1,             InvalidMenuID,         InvalidMenuID,           {{0xBFD8, 0xD6C6, 0xB2CE, 0xCAFD}, {0x43, 0x6F, 0x6E, 0x74, 0x72, 0x6F, 0x6C, 0x20, 0x50, 0x61, 0x72, 0x61}},
-  DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-现场控制(Local Mode)-
-  {2,             InvalidMenuID,         InvalidMenuID,           {{0xCFD6, 0xB3A1, 0xBFD8, 0xD6C6}, {0x4C, 0x6F, 0x63, 0x61, 0x6C, 0x20, 0x4D, 0x6F, 0x64, 0x65}},
-  DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-  点动(Jog)-
-  {3,             Page_QueryControl_ID,       InvalidMenuID,           {{Space, Space, 0xB5E3, 0xB6AF}, {Space, Space, 0x4A, 0x6F, 0x67}},
-  DummyFunction, StandardMenu_SetKey, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-          保持(Hold)-
-  {3,             Page_QueryControl_ID,       InvalidMenuID,           {{Space, Space, Space, Space, Space, Space, Space, Space, Space, Space, 0xB1A3, 0xB3D6}, {Space, Space, Space, Space, Space, Space, Space, Space, Space, Space, 0x48, 0x6F, 0x6C, 0x64}},
-  DummyFunction, StandardMenu_SetKey, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-};
-
-//-第4个初始值代表菜单项个数,必须给正确的值-
-MenuPara      MenuPara_QueryLocal = {3, 3, 4, 5, Multiplex_None, Local_Reset};
-
-
-/*------------------远程开关控制-------------------------------*/
-const MenuStructure Menu_QueryRemoteIO[] = 
-{
-  /*-索引号       父菜单                 子菜单                   菜单项名称-*/
-  //-参数浏览(Para Query)-
-  {0,             Page_QueryControl_ID,   InvalidMenuID,           {{0xB2CE, 0xCAFD, 0xE4AF, 0xC0C0}, {0x50, 0x61, 0x72, 0x61, 0x20, 0x51, 0x75, 0x65, 0x72, 0x79}},
-  Opening_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-远程开关控制(Remote IO)-
-  {1,             InvalidMenuID,         InvalidMenuID,           {{0xD4B6, 0xB3CC, 0xBFAA, 0xB9D8, 0xBFD8, 0xD6C6}, {0x52, 0x65, 0x6D, 0x6F, 0x74, 0x65, 0x20, 0x49, 0x4F}},
-  DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-  点动(Jog)-
-  {2,             Page_QueryControl_ID,         InvalidMenuID,         {{Space, Space, 0xB5E3, 0xB6AF}, {Space, Space, 0x4A, 0x6F, 0x67}},
-  DummyFunction, StandardMenu_SetKey, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-  保持(Hold)-
-  {3,             Page_QueryControl_ID,         InvalidMenuID,         {{Space, Space, 0xB1A3, 0xB3D6}, {Space, Space, 0x48, 0x6F, 0x6C, 0x64}},
-  DummyFunction, StandardMenu_SetKey, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-          有信开(Open-Sig)-
-  {2,             Page_QueryControl_ID,         InvalidMenuID,         {{Space, Space, Space, Space, Space, Space, Space, Space, Space, Space,0xD3D0, 0xD0C5, 0xBFAA}, {Space, Space, Space, Space, Space, Space, Space, Space, 0x4F, 0x70, 0x65, 0x6E, 0x2D, 0x53, 0x69, 0x67}},
-  DummyFunction, StandardMenu_SetKey, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-          有信关(Shut-Sig)-
-  {3,             Page_QueryControl_ID,         InvalidMenuID,         {{Space, Space, Space, Space, Space, Space, Space, Space, Space, Space, 0xD3D0, 0xD0C5, 0xB9D8}, {Space, Space, Space, Space, Space, Space, Space, Space, 0x53, 0x68, 0x75, 0x74, 0x2D, 0x53, 0x69, 0x67}},
-  DummyFunction, StandardMenu_SetKey, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-};
-
-//-第4个初始值代表菜单项个数,必须给正确的值-
-MenuPara      MenuPara_QueryRemoteIO = {2, 2, 4, 6, Multiplex_None, RemoteIO_Reset};
-
-
-/*------------------远程模拟控制-------------------------------*/
-const MenuStructure Menu_QueryRemoteAN[] = 
-{
-  /*-索引号       父菜单                 子菜单                   菜单项名称-*/
-  //-参数浏览(Para Query)-
-  {0,             Page_QueryControl_ID,   InvalidMenuID,           {{0xB2CE, 0xCAFD, 0xE4AF, 0xC0C0}, {0x50, 0x61, 0x72, 0x61, 0x20, 0x51, 0x75, 0x65, 0x72, 0x79}},
-  Opening_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-远程模拟控制(Remote AN)-
-  {1,             InvalidMenuID,         InvalidMenuID,           {{0xD4B6, 0xB3CC, 0xC4A3, 0xC4E2, 0xBFD8, 0xD6C6}, {0x52, 0x65, 0x6D, 0x6F, 0x74, 0x65, 0x20, 0x41, 0x4E}},
-  DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-  保持(Keep)-
-  {2,             Page_QueryControl_ID,         InvalidMenuID,         {{Space, Space, 0xB1A3, 0xB3D6}, {Space, Space, 0x4B, 0x65, 0x65, 0x70}},
-  DummyFunction, RemoteAN_SetKey, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-  全关(Shut)-
-  {3,             Page_QueryControl_ID,         InvalidMenuID,         {{Space, Space, 0xC8AB, 0xB9D8}, {Space, Space, 0x53, 0x68, 0x75, 0x74}},
-  DummyFunction, RemoteAN_SetKey, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-          居中(Middle)-
-  {2,             Page_QueryControl_ID,         InvalidMenuID,         {{Space, Space, Space, Space, Space, Space, Space, Space, Space, Space, 0xBED3, 0xD6D0}, {Space, Space, Space, Space, Space, Space, Space, Space, Space, Space, 0x4D, 0x69, 0x64, 0x64, 0x6C, 0x65}},
-  DummyFunction, RemoteAN_SetKey, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-          全开(Open)-
-  {3,             Page_QueryControl_ID,         InvalidMenuID,         {{Space, Space, Space, Space, Space, Space, Space, Space, Space, Space, 0xC8AB, 0xBFAA}, {Space, Space, Space, Space, Space, Space, Space, Space, Space, Space, 0x4F, 0x70, 0x65, 0x6E}},
-  DummyFunction, RemoteAN_SetKey, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-};
-
-//-第4个初始值代表菜单项个数,必须给正确的值-
-MenuPara      MenuPara_QueryRemoteAN = {2, 2, 4, 6, Multiplex_None, RemoteAN_Reset};
-
-
-//------------------更改密码-------------------------------
-const MenuStructure Menu_QueryPassword[] = 
-{
-  //-索引号       父菜单                 子菜单                   菜单项名称-
-  //-参数浏览(Para Query)-
-  {0,             Page_ParaQuery_ID,   InvalidMenuID,           {{0xB2CE, 0xCAFD, 0xE4AF, 0xC0C0}, {0x50, 0x61, 0x72, 0x61, 0x20, 0x51, 0x75, 0x65, 0x72, 0x79}},
-  Opening_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-其他查询(Other Query)-
-  {1,             InvalidMenuID,         InvalidMenuID,         {{0xC6E4, 0xCBFB, 0xB2E9, 0xD1AF}, {0x4F, 0x74, 0x68, 0x65, 0x72, 0x20, 0x51, 0x75, 0x65, 0x72, 0x79}},
-  DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-密码查询(Pwd Query)-
-  {2,             InvalidMenuID,         InvalidMenuID,          {{0xC3DC, 0xC2EB, 0xB2E9, 0xD1AF}, {0x50, 0x77, 0x64, 0x20, 0x51, 0x75, 0x65, 0x72, 0x79}},
-  DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-* * *-
-  {3,             Page_ParaQuery_ID,    InvalidMenuID,           {0},
-  ChangePassword_Special, StandardMenu_SetKey, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-};
-
-//-第4个初始值代表菜单项个数,必须给正确的值-
-MenuPara      MenuPara_QueryPassword = {3, 3, 4, 4, Multiplex_None, StandardMenu_Reset0};
-
-
-//------------------查询错误-------------------------------
-const MenuStructure Menu_QueryError[] = 
-{
-  //-索引号       父菜单                 子菜单                   菜单项名称-
-  //-参数浏览(Para Query)-
-  {0,             Page_ParaQuery_ID,   InvalidMenuID,           {{0xB2CE, 0xCAFD, 0xE4AF, 0xC0C0}, {0x50, 0x61, 0x72, 0x61, 0x20, 0x51, 0x75, 0x65, 0x72, 0x79}},
-  Opening_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-故障(Error)-
-  {1,             InvalidMenuID,         InvalidMenuID,         {{0xB9CA, 0xD5CF}, {0x45, 0x72, 0x72, 0x6F, 0x72}},
-  DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //--
-  {2,             InvalidMenuID,         InvalidMenuID,         {0},
-  QueryError_Special, QueryError_SetKey, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-0-
-  {3,             InvalidMenuID,         InvalidMenuID,         {0},
-  DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-};
-
-//-第4个初始值代表菜单项个数,必须给正确的值-
-MenuPara      MenuPara_QueryError = {2, 2, 4, 4, Multiplex_None, StandardMenu_Reset0};
-
-
-#if Debug
-/*---------------------通讯测试-----------------------------------------------*/
-const MenuStructure Menu_CommTest[] = 
-{
-  /*-索引号       父菜单                 子菜单                   菜单项名称-*/
-  //-发-
-  {0,             InvalidMenuID,           InvalidMenuID,           {{0xB7A2}, 0},
-  CommTest_Special, CommTest_SetKey, CommTest_IncKey, CommTest_DecKey, DummyFunction, DummyFunction},
-
-  //--
-  {1,             InvalidMenuID,           InvalidMenuID,           {0},
-  CommTest_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //-收-
-  {2,             InvalidMenuID,           InvalidMenuID,           {{0xCAD5}, {0}},
-  CommTest_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
-
-  //--
-  {3,             InvalidMenuID,           InvalidMenuID,           {0},
-  CommTest_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction}
+  //-远程点动控制-
+  {0,             Page_MainMenu_ID,        InvalidMenuID,         {0xD4B6, 0xB3CC, 0xB5E3, 0xB6AF, 0xBFD8, 0xD6C6},
+  RemoteIOMode_Special, RemoteIOMode_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
+
+  //-远程保持停常开-
+  {1,             InvalidMenuID,           InvalidMenuID,         {0xD4B6, 0xB3CC, 0xB1A3, 0xB3D6, 0xCDA3, 0xB3A3, 0xBFAA},
+  RemoteIOMode_Special, RemoteIOMode_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
+
+  //-远程保持停常闭-
+  {2,             InvalidMenuID,           InvalidMenuID,         {0xD4B6, 0xB3CC, 0xB1A3, 0xB3D6, 0xCDA3, 0xB3A3, 0xB1D5},
+  RemoteIOMode_Special, RemoteIOMode_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
+
+  //-有信开无信关-
+  {3,             InvalidMenuID,           InvalidMenuID,         {0xD3D0, 0xD0C5, 0xBFAA, 0xCEDE, 0xD0C5, 0xB9D8},
+  RemoteIOMode_Special, RemoteIOMode_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
+
+  //-有信关无信开-
+  {4,             InvalidMenuID,           InvalidMenuID,         {0xD3D0, 0xD0C5, 0xB9D8, 0xCEDE, 0xD0C5, 0xBFAA},
+  RemoteIOMode_Special, RemoteIOMode_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
+
+  //-返回上级-
+  {5,             Page_MainMenu_ID,        InvalidMenuID,         {0xB7B5, 0xBBD8,0xC9CF, 0xBCB6},
+  Dummy_Special, StandardMenu_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction}
 };  
 
 //-第6个初始值代表菜单项个数,必须给正确的值- 
-MenuPara      MenuPara_CommTest = {0, 0, 4, 4, Multiplex_None, StandardMenu_Reset0}; 
-#endif
+MenuPara      MenuPara_RemoteIOMode = {0, Invalid, Enable, Disable, Invalid, 6, Multiplex_None, StandardMenu_Reset0};  
+
+
+/*---------------------远程调节型设置-----------------------------------------*/
+const MenuStructure Menu_RemoteANMode[] = 
+{
+  /*-索引号       父菜单                 子菜单                   菜单项名称-*/
+  //-控制死区-
+  {0,             Page_MainMenu_ID,        Page_DeadZone_ID,        {0xBFD8, 0xD6C6,0xCBC0, 0xC7F8},
+  Dummy_Special, StandardMenu_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
+
+  //-丢信保位-
+  {1,             InvalidMenuID,           InvalidMenuID,           {0xB6AA, 0xD0C5,0xB1A3, 0xCEBB},
+  RemoteANMode_Special, RemoteANMode_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
+
+  //-丢信关闭-
+  {2,             InvalidMenuID,           InvalidMenuID,           {0xB6AA, 0xD0C5,0xB9D8, 0xB1D5},
+  RemoteANMode_Special, RemoteANMode_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
+
+  //-丢信居中-
+  {3,             InvalidMenuID,           InvalidMenuID,           {0xB6AA, 0xD0C5,0xBED3, 0xD6D0},
+  RemoteANMode_Special, RemoteANMode_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
+
+  //-丢信打开-
+  {4,             InvalidMenuID,           InvalidMenuID,           {0xB6AA, 0xD0C5,0xB4F2, 0xBFAA},
+  RemoteANMode_Special, RemoteANMode_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
+
+  //-返回上级-
+  {5,             Page_MainMenu_ID,        InvalidMenuID,           {0xB7B5, 0xBBD8,0xC9CF, 0xBCB6},
+  Dummy_Special, StandardMenu_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction}
+};  
+
+//-第6个初始值代表菜单项个数,必须给正确的值- 
+MenuPara      MenuPara_RemoteANMode = {0, Invalid, Enable, Disable, Invalid, 6, Multiplex_None, StandardMenu_Reset0};    
+
+
+/*---------------------死区---------------------------------------------------*/
+//-注意:按照一般处理DeadZone_UpKey应该放到菜单项1而不是菜单项2(即返回上级).
+//     但是死区的焦点一直固定在"返回上级",加减改变的菜单项1.故特殊处理.
+const MenuStructure Menu_DeadZone[] = 
+{
+  /*-索引号       父菜单                 子菜单                   菜单项名称-*/
+  //-设置控制死区-
+  {0,             Page_RemoteANMode_ID,    InvalidMenuID,           {0xC9E8, 0xD6C3, 0xBFD8, 0xD6C6, 0xCBC0, 0xC7F8},
+  Dummy_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
+
+  //-自适应/x.x%-
+  {1,             InvalidMenuID,           InvalidMenuID,           {0},
+  DeadZone_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
+
+  //-返回上级-
+  {2,             Page_RemoteANMode_ID,    InvalidMenuID,           {0xA3A0, 0xA3A0, 0xA3A0, 0xA3A0, 0xB7B5, 0xBBD8, 0xC9CF, 0xBCB6},
+  DeadZone_Special, StandardMenu_SetKey, DummyFunction, DummyFunction, DeadZone_IncKey, DeadZone_DecKey},
+
+  //-切换至现场可调整-
+  {3,             InvalidMenuID,           InvalidMenuID,           {0xC7D0, 0xBBBB, 0xD6C1, 0xCFD6, 0xB3A1, 0xBFC9, 0xB5F7, 0xD5FB},
+  DeadZone_Special, StandardMenu_SetKey, DummyFunction, DummyFunction, AdjustOutput4mA_IncKey, AdjustOutput4mA_DecKey}
+};  
+
+//-第6个初始值代表菜单项个数,必须给正确的值- 
+MenuPara      MenuPara_DeadZone = {2, 4, Disable, Enable, 8, 4, Multiplex_None, Dummy_Reset};  
+
+
+/*---------------------密码输入-----------------------------------------------*/
+const MenuStructure Menu_Password[] = 
+{
+  /*-索引号       父菜单                 子菜单                   菜单项名称-*/
+  //-需由专业人员设置-
+  {0,             Page_MainMenu_ID,        InvalidMenuID,           {0xD0E8, 0xD3C9, 0xD7A8, 0xD2B5, 0xC8CB, 0xD4B1, 0xC9E8, 0xD6C3},  
+  Dummy_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
+
+  //-请输入密码-
+  {1,             InvalidMenuID,           InvalidMenuID,           {0xC7EB, 0xCAE4, 0xC8EB, 0xC3DC, 0xC2EB}, 
+  Dummy_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
+
+  //- X X X X-
+  {2,             InvalidMenuID,           Page_InternalPara_ID,    {0xA3A0, 0xA3A0, 0xA3A0, 0xA3A0, 0xA3B0, 0xA3A0, 0xA3B0, 0xA3A0, 0xA3B0, 0xA3A0, 0xA3B0, 0xA3A0},
+  Password_Special, Password_SetKey, Password_UpKey, Password_DownKey, Password_IncKey, Password_DecKey},
+
+  //-密码错误重新输入-
+  {3,             InvalidMenuID,           InvalidMenuID,           {0xC3DC, 0xC2EB, 0xB4ED, 0xCEF3, 0xD6D8, 0xD0C2, 0xCAE4, 0xC8EB},
+  Password_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction}
+};   
+
+ //-第6个初始值代表菜单项个数,必须给正确的值-
+MenuPara      MenuPara_Password = {2, 4, Disable,Enable, 1, 4, Multiplex_Digit, Dummy_Reset};   
+
+
+/*---------------------内部参数-----------------------------------------------*/
+const MenuStructure Menu_InternalPara[] = 
+{
+  /*-索引号       父菜单                 子菜单                   菜单项名称-*/
+  //-反馈4mA修正-
+  {0,             Page_MainMenu_ID,        Page_AdjustOutput4mA_ID, {0xB7B4, 0xC0A1, 0xA3A0, 0xA3B4, 0xA3ED, 0xA3C1, 0xD0DE, 0xD5FD},
+  Dummy_Special, StandardMenu_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
+
+  //-反馈20mA修正-
+  {1,             InvalidMenuID,           Page_AdjustOutput20mA_ID,{0xB7B4, 0xC0A1,0xA3B2, 0xA3B0, 0xA3ED, 0xA3C1, 0xD0DE, 0xD5FD},
+  Dummy_Special, StandardMenu_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
+
+  //-输入4mA校准-
+  {2,             InvalidMenuID,           Page_AdjustInput4mA_ID,  {0xCAE4, 0xC8EB, 0xA3A0, 0xA3B4, 0xA3ED, 0xA3C1, 0xD0A3, 0xD7BC},
+  Dummy_Special, StandardMenu_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
+
+  //-输入20mA校准-
+  {3,             InvalidMenuID,           Page_AdjustInput20mA_ID, {0xCAE4, 0xC8EB,0xA3B2, 0xA3B0, 0xA3ED, 0xA3C1, 0xD0A3, 0xD7BC},
+  Dummy_Special, StandardMenu_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
+
+  //-设置关动作电流-
+  {4,             InvalidMenuID,           Page_ShutCurrent_ID,     {0xC9E8, 0xD6C3, 0xB9D8, 0xB6AF, 0xD7F7, 0xB5E7, 0xC1F7},
+  Dummy_Special, StandardMenu_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
+
+  //-设置开动作电流-
+  {5,             InvalidMenuID,           Page_OpenCurrent_ID,     {0xC9E8, 0xD6C3, 0xBFAA, 0xB6AF, 0xD7F7, 0xB5E7, 0xC1F7},
+  Dummy_Special, StandardMenu_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
+
+  //-阀门最大开闭时间-
+  {6,             InvalidMenuID,           Page_MaxActionTime_ID,   {0xB7A7, 0xC3C5,0xD7EE, 0xB4F3, 0xBFAA, 0xB1D5, 0xCAB1, 0xBCE4},
+  Dummy_Special, StandardMenu_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
+
+  //-故障反馈触点选择-
+  {7,             InvalidMenuID,           Page_ErrorFeedback_ID,   {0xB9CA, 0xD5CF, 0xB7B4, 0xC0A1, 0xB4A5, 0xB5E3, 0xD1A1, 0xD4F1},
+  Dummy_Special, StandardMenu_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
+
+  //-ESD设置-
+  {8,             InvalidMenuID,           Page_ESDSetting_ID,      {0x45, 0x53, 0x44, 0xC9E8, 0xD6C3},
+  Dummy_Special, StandardMenu_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
+
+  //-返回上级-
+  {9,             Page_MainMenu_ID,        InvalidMenuID,           {0xB7B5, 0xBBD8,0xC9CF, 0xBCB6},
+  Dummy_Special, StandardMenu_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction}
+};   
+
+//-第6个初始值代表菜单项个数,必须给正确的值-
+MenuPara      MenuPara_InternalPara = {0, Invalid, Enable, Disable, Invalid, 10, Multiplex_None, StandardMenu_Reset0};    
+
+
+/*---------------------反馈电流4mA修正----------------------------------------*/
+const MenuStructure Menu_AdjustOutput4mA[] = 
+{
+  /*-索引号       父菜单                 子菜单                   菜单项名称-*/
+  //-反馈电流4mA修正-
+  {0,             Page_InternalPara_ID,    InvalidMenuID,           {0xB7B4, 0xC0A1, 0xB5E7, 0xC1F7, 0xA3B4, 0xA3ED, 0xA3C1, 0xD0DE, 0xD5FD},
+  Dummy_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
+
+  //--
+  {1,             InvalidMenuID,           InvalidMenuID,           {0},
+  AdjustOutput4_20mA_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
+
+  //-返回上级-
+  {2,             Page_InternalPara_ID,    InvalidMenuID,           {0xA3A0, 0xA3A0, 0xA3A0, 0xA3A0, 0xB7B5, 0xBBD8, 0xC9CF, 0xBCB6},
+  AdjustOutput4_20mA_Special, StandardMenu_SetKey, DummyFunction, DummyFunction, AdjustOutput4mA_IncKey, AdjustOutput4mA_DecKey},
+
+  //-切换至现场可调整-
+  {3,             InvalidMenuID,           InvalidMenuID,           {0xC7D0, 0xBBBB, 0xD6C1, 0xCFD6, 0xB3A1, 0xBFC9, 0xB5F7, 0xD5FB},
+  AdjustOutput4_20mA_Special, StandardMenu_SetKey, DummyFunction, DummyFunction, AdjustOutput4mA_IncKey, AdjustOutput4mA_DecKey}
+};  
+
+//-第6个初始值代表菜单项个数,必须给正确的值- 
+MenuPara      MenuPara_AdjustOutput4mA = {2, 4, Disable, Enable, 8, 4, Multiplex_Adjust, Dummy_Reset}; 
+
+
+/*---------------------反馈电流20mA修正----------------------------------------*/
+const MenuStructure Menu_AdjustOutput20mA[] = 
+{
+  /*-索引号       父菜单                 子菜单                   菜单项名称-*/
+  //-反馈电流20mA修正-
+  {0,             Page_InternalPara_ID,    InvalidMenuID,           {0xB7B4, 0xC0A1, 0xB5E7, 0xC1F7, 0xA3B2, 0xA3B0, 0xA3ED, 0xA3C1, 0xD0DE, 0xD5FD},
+  Dummy_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
+
+  //-空行-
+  {1,             InvalidMenuID,           InvalidMenuID,           {0},
+  AdjustOutput4_20mA_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
+
+  //-返回上级-
+  {2,             Page_InternalPara_ID,    InvalidMenuID,           {0xA3A0, 0xA3A0, 0xA3A0, 0xA3A0, 0xB7B5, 0xBBD8, 0xC9CF, 0xBCB6},
+  AdjustOutput4_20mA_Special, StandardMenu_SetKey, DummyFunction, DummyFunction, AdjustOutput20mA_IncKey, AdjustOutput20mA_DecKey}, 
+
+  //-切换至现场可调整-
+  {3,             InvalidMenuID,           InvalidMenuID,           {0xC7D0, 0xBBBB, 0xD6C1, 0xCFD6, 0xB3A1, 0xBFC9, 0xB5F7, 0xD5FB},
+  AdjustOutput4_20mA_Special, StandardMenu_SetKey, DummyFunction, DummyFunction, AdjustOutput4mA_IncKey, AdjustOutput4mA_DecKey}
+};  
+
+//-第6个初始值代表菜单项个数,必须给正确的值- 
+MenuPara      MenuPara_AdjustOutput20mA = {2, 4, Disable, Enable, 8, 4, Multiplex_Adjust, Dummy_Reset}; 
+
+
+/*---------------------标定输入4mA--------------------------------------------*/
+const MenuStructure Menu_AdjustInput4mA[] = 
+{
+  /*-索引号       父菜单                 子菜单                   菜单项名称-*/
+  //-把当前输入电流-
+  {0,             Page_InternalPara_ID,  InvalidMenuID,           {0xA3A0, 0xB0D1, 0xB5B1, 0xC7B0, 0xCAE4, 0xC8EB, 0xB5E7, 0xC1F7},
+  Dummy_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
+
+  //-约xx.xmA-
+  {1,             InvalidMenuID,         InvalidMenuID,           {0, 0, 0, 0, 0xD4BC, 0, 0, 0, 0, 0xA3ED, 0xA3C1},
+  AdjustInput4_20mA_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
+  
+  //-标定为目标0%-
+  {2,             InvalidMenuID,         InvalidMenuID,           {0xA3A0, 0xB1EA, 0xB6A8, 0xCEAA,0xC4BF, 0xB1EA, 0xA3B0,0xA3A5},
+  Dummy_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
+
+  //-确认  返回-
+  {3,             Page_InternalPara_ID,   Page_AdjustInput4mAInfo_ID,{0xA3A0, 0xA3A0, 0xA3A0, 0xC8B7, 0xC8CF, 0xA3A0, 0xA3A0, 0xB7B5, 0xBBD8},
+  Dummy_Special, AdjustInput4_20mA_SetKey, AdjustInput4_20mA_UpKey, AdjustInput4_20mA_DownKey, DummyFunction, DummyFunction},
+};   
+
+//-第6个初始值代表菜单项个数,必须给正确的值-
+MenuPara      MenuPara_AdjustInput4mA = {3, 3, Disable, Enable, 4, 4, Multiplex_None, StandardMenu_Reset1}; 
+
+
+/*---------------------输入电流标定4mA提示信息---------------------------------------*/
+const MenuStructure Menu_AdjustInput4mAInfo[] = 
+{
+  /*-索引号       父菜单                 子菜单                   菜单项名称-*/
+  //--
+  {0,             Page_InternalPara_ID,    InvalidMenuID,           {0},
+   Dummy_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
+  
+  //-已把当前电流-
+  {1,             InvalidMenuID,           InvalidMenuID,           {0xA3A0, 0xA3A0, 0xD2D1, 0xB0D1, 0xB5B1, 0xC7B0, 0xB5E7, 0xC1F7},
+   Dummy_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
+  
+  //-成功标定为0%-
+  {2,             InvalidMenuID,           InvalidMenuID,           {0xA3A0, 0xA3A0, 0xB3C9, 0xB9A6, 0xB1EA, 0xB6A8, 0xCEAA, 0xA3B0, 0xA3A5},
+   Dummy_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
+  
+  //--
+  {3,             InvalidMenuID,           InvalidMenuID,           {0},
+   Dummy_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
+};   
+
+//-第6个初始值代表菜单项个数,必须给正确的值-
+MenuPara      MenuPara_AdjustInput4mAInfo = {0, Invalid, Disable, Disable, Invalid, 4, Multiplex_None, Dummy_Reset};
+
+
+/*---------------------标定输入20mA-------------------------------------------*/
+const MenuStructure Menu_AdjustInput20mA[] = 
+{
+  /*-索引号       父菜单                 子菜单                   菜单项名称-*/
+  //-把当前输入电流-
+  {0,             Page_InternalPara_ID,    InvalidMenuID,           {0xA3A0, 0xB0D1, 0xB5B1, 0xC7B0, 0xCAE4, 0xC8EB, 0xB5E7, 0xC1F7},
+  Dummy_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
+
+  //-约xx.xmA-
+  {1,             InvalidMenuID,           InvalidMenuID,           {0, 0, 0, 0, 0xD4BC, 0, 0, 0, 0, 0xA3ED, 0xA3C1},
+  AdjustInput4_20mA_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
+  
+  //-标定为目标100%-
+  {2,             InvalidMenuID,           InvalidMenuID,           {0xA3A0, 0xB1EA, 0xB6A8, 0xCEAA,0xC4BF, 0xB1EA, 0xA3B1, 0xA3B0, 0xA3B0,0xA3A5},
+  Dummy_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
+
+  //-确认  返回-
+  {3,             Page_InternalPara_ID,     Page_AdjustInput20mAInfo_ID,{0xA3A0, 0xA3A0, 0xA3A0, 0xC8B7, 0xC8CF, 0xA3A0, 0xA3A0, 0xB7B5, 0xBBD8},
+  Dummy_Special, AdjustInput4_20mA_SetKey, AdjustInput4_20mA_UpKey, AdjustInput4_20mA_DownKey, DummyFunction, DummyFunction},
+};   
+
+//-第6个初始值代表菜单项个数,必须给正确的值-
+MenuPara      MenuPara_AdjustInput20mA = {3, 3, Disable, Enable, 4, 4, Multiplex_None, StandardMenu_Reset1}; 
+
+
+/*---------------------输入20mA标定提示信息---------------------------------------*/
+const MenuStructure Menu_AdjustInput20mAInfo[] = 
+{
+  /*-索引号       父菜单                 子菜单                   菜单项名称-*/
+  //--
+  {0,             Page_InternalPara_ID,    InvalidMenuID,           {0},
+   Dummy_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
+  
+  //-已把当前电流-
+  {1,             InvalidMenuID,           InvalidMenuID,           {0xA3A0, 0xA3A0, 0xD2D1, 0xB0D1, 0xB5B1, 0xC7B0, 0xB5E7, 0xC1F7},
+   Dummy_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
+  
+  //-成功标定为100%-
+  {2,             InvalidMenuID,           InvalidMenuID,           {0xA3A0, 0xA3A0, 0xB3C9, 0xB9A6, 0xB1EA, 0xB6A8, 0xCEAA, 0xA3B1, 0xA3B0, 0xA3B0, 0xA3A5},
+   Dummy_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
+  
+  //--
+  {3,             InvalidMenuID,           InvalidMenuID,           {0},
+   Dummy_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
+};   
+
+//-第6个初始值代表菜单项个数,必须给正确的值-
+MenuPara      MenuPara_AdjustInput20mAInfo = {0, Invalid, Disable, Disable, Invalid, 4, Multiplex_None, Dummy_Reset};   
+
+
+/*------------------ 关动作电流-------------------------------*/
+const MenuStructure Menu_ShutCurrent[] = 
+{
+  /*-索引号       父菜单                 子菜单                   菜单项名称-*/
+  //-设置关向动作电流-
+  {0,             Page_InternalPara_ID,  InvalidMenuID,           {0xC9E8, 0xD6C3, 0xB9D8, 0xCFF2, 0xB6AF, 0xD7F7, 0xB5E7, 0xC1F7},
+  Dummy_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
+
+  //--
+  {1,             InvalidMenuID,         InvalidMenuID,           {0},
+  ShutCurrent_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
+
+  //-    返回上级-
+  {2,             Page_InternalPara_ID,  InvalidMenuID,           {Space, Space, Space, Space, 0xB7B5, 0xBBD8, 0xC9CF, 0xBCB6},
+  ShutCurrent_Special, StandardMenu_Back2Parent, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
+
+  //-切换至现场可调整-
+  {3,             InvalidMenuID,         InvalidMenuID,           {0xC7D0, 0xBBBB, 0xD6C1, 0xCFD6, 0xB3A1, 0xBFC9, 0xB5F7, 0xD5FB},
+  ShutCurrent_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
+};
+
+//-第6个初始值代表菜单项个数,必须给正确的值-
+MenuPara      MenuPara_ShutCurrent = {2, 4, Disable, Enable, 8, 4, Multiplex_None, Dummy_Reset};
+
+
+/*------------------ 开动作电流-------------------------------*/
+const MenuStructure Menu_OpenCurrent[] = 
+{
+  /*-索引号       父菜单                 子菜单                   菜单项名称-*/
+  //-设置开向动作电流-
+  {0,             Page_InternalPara_ID,  InvalidMenuID,           {0xC9E8, 0xD6C3, 0xBFAA, 0xCFF2, 0xB6AF, 0xD7F7, 0xB5E7, 0xC1F7},
+  Dummy_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
+
+  //--
+  {1,             InvalidMenuID,         InvalidMenuID,           {0},
+  ShutCurrent_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
+
+  //-    返回上级-
+  {2,             Page_InternalPara_ID,    InvalidMenuID,           {Space, Space, Space, Space, 0xB7B5, 0xBBD8, 0xC9CF, 0xBCB6},
+  ShutCurrent_Special, StandardMenu_Back2Parent, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
+
+  //-切换至现场可调整-
+  {3,             InvalidMenuID,         InvalidMenuID,           {0xC7D0, 0xBBBB, 0xD6C1, 0xCFD6, 0xB3A1, 0xBFC9, 0xB5F7, 0xD5FB},
+  ShutCurrent_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
+};
+
+//-第6个初始值代表菜单项个数,必须给正确的值-
+MenuPara      MenuPara_OpenCurrent = {2, 4, Disable, Enable, 8, 4, Multiplex_None, Dummy_Reset};
+
+
+/*---------------------阀门最大开闭时间---------------------------------------*/
+const MenuStructure Menu_MaxActionTime[] = 
+{
+  /*-索引号       父菜单                 子菜单                   菜单项名称-*/
+  //-阀门最大开闭时间-
+  {0,             Page_InternalPara_ID,    InvalidMenuID,           {0xB7A7, 0xC3C5, 0xD7EE, 0xB4F3, 0xBFAA, 0xB1D5, 0xCAB1, 0xBCE4},
+  Dummy_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
+
+  //-不限时/xxxS-
+  {1,             Page_InternalPara_ID,    InvalidMenuID,           {0},
+  MaxActionTime_Special, MaxActionTime_SetKey, DummyFunction, DummyFunction, MaxActionTime_IncKey, MaxActionTime_DecKey},
+
+  //-    返回上级-
+  {2,             Page_InternalPara_ID,    InvalidMenuID,           {Space, Space, Space, Space, 0xB7B5, 0xBBD8, 0xC9CF, 0xBCB6},
+  MaxActionTime_Special, StandardMenu_Back2Parent, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
+
+  //-切换至现场可调整-
+  {3,             InvalidMenuID,         InvalidMenuID,           {0xC7D0, 0xBBBB, 0xD6C1, 0xCFD6, 0xB3A1, 0xBFC9, 0xB5F7, 0xD5FB},
+  MaxActionTime_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
+};  
+
+//-第6个初始值代表菜单项个数,必须给正确的值- 
+MenuPara      MenuPara_MaxActionTime = {1, 6, Disable, Enable, 6, 4, Multiplex_Digit, Dummy_Reset}; 
+
+
+/*------------------ 故障反馈触点-------------------------------*/
+const MenuStructure Menu_ErrorFeedback[] = 
+{
+  /*-索引号       父菜单                 子菜单                   菜单项名称-*/
+  //-故障反馈触点选择-
+  {0,             Page_InternalPara_ID,  InvalidMenuID,           {0xB9CA, 0xD5CF, 0xB7B4, 0xC0A1, 0xB4A5, 0xB5E3, 0xD1A1, 0xD4F1},
+  Dummy_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
+
+  //-有故障闭合NO-
+  {1,             InvalidMenuID,         InvalidMenuID,           {0xD3D0, 0xB9CA, 0xD5CF, 0xB1D5, 0xBACF, 0x4E, 0x4F},
+  ErrorFeedback_Special, ErrorFeedback_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
+
+  //-有故障闭合NC-
+  {2,             InvalidMenuID,         InvalidMenuID,           {0xD3D0, 0xB9CA, 0xD5CF, 0xB1D5, 0xBACF, 0x4E, 0x43},
+  ErrorFeedback_Special, ErrorFeedback_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
+
+  //-返回上级-
+  {3,             Page_InternalPara_ID,  InvalidMenuID,           {0xB7B5, 0xBBD8, 0xC9CF, 0xBCB6},
+  Dummy_Special, StandardMenu_Back2Parent, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
+};
+
+//-第6个初始值代表菜单项个数,必须给正确的值-
+MenuPara      MenuPara_ErrorFeedback = {1, Invalid, Enable, Disable, 8, 4, Multiplex_None, Dummy_Reset};
+
+
+/*------------------ ESD设置-------------------------------*/
+const MenuStructure Menu_ESDSetting[] = 
+{
+  /*-索引号       父菜单                 子菜单                   菜单项名称-*/
+  //-ESD禁用-
+  {0,             Page_InternalPara_ID,  InvalidMenuID,           {0x45, 0x53, 0x44, 0xBDFB, 0xD3C3},
+  ESDSetting_Special, ESDSetting_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
+
+  //-ESD禁止动作-
+  {1,             InvalidMenuID,         InvalidMenuID,           {0x45, 0x53, 0x44, 0xBDFB, 0xD6B9, 0xB6AF, 0xD7F7},
+  ESDSetting_Special, ESDSetting_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
+
+  //-ESD打开阀门-
+  {2,             InvalidMenuID,         InvalidMenuID,           {0x45, 0x53, 0x44, 0xB4F2, 0xBFAA, 0xB7A7, 0xC3C5},
+  ESDSetting_Special, ESDSetting_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
+
+  //-ESD关闭阀门-
+  {3,             InvalidMenuID,         InvalidMenuID,           {0x45, 0x53, 0x44, 0xB9D8, 0xB1D5, 0xB7A7, 0xC3C5},
+  ESDSetting_Special, ESDSetting_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
+
+  //-ESD到中间位-
+  {4,             InvalidMenuID,         InvalidMenuID,           {0x45, 0x53, 0x44, 0xB5BD, 0xD6D0, 0xBCE4, 0xCEBB},
+  ESDSetting_Special, ESDSetting_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
+
+  //-返回上级-
+  {5,             Page_InternalPara_ID,  InvalidMenuID,           {0xB7B5, 0xBBD8, 0xC9CF, 0xBCB6},
+  Dummy_Special, StandardMenu_Back2Parent, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
+};
+
+//-第6个初始值代表菜单项个数,必须给正确的值-
+MenuPara      MenuPara_ESDSetting = {0, 0, Enable, Disable, Invalid, 6, Multiplex_None, Dummy_Reset};
 
 
 /*******************************************************************************
@@ -1457,7 +836,7 @@ void DummyFunction(const MenuStructure *pMenu, MenuPara *pMenuPara)
 * 输出参数:    无
 * 返 回 值:    无
 *******************************************************************************/
-void DummyFunction1(MenuPara *pMenuPara)
+void Dummy_Special(const MenuStructure *pMenu, MenuPara *pMenuPara, int LineIndex)
 {
 }
 
@@ -1469,44 +848,8 @@ void DummyFunction1(MenuPara *pMenuPara)
 * 输出参数:    无
 * 返 回 值:    无
 *******************************************************************************/
-void ShowArrovw(int X_Offset)
+void Dummy_Reset(MenuPara *pMenuPara)
 {
-    unsigned char FontBuf[32] = {0};
-    unsigned char FontBufLen = 0;
-  
-    unsigned int Code = 0;
-
-    //-补上"->"- 
-    Code = 0xA1FA;
-    GetDotData(Code, CN_Character, &FontBuf[0], &FontBufLen);
-    SwapFontBuf2DisplayBuf(&FontBuf[0], FontBufLen, &g_DisplayBuf[0], X_Offset);
-}
-
-
-/*******************************************************************************
-* 函数名称:    
-* 函数功能:    
-* 输入参数:    
-* 输出参数:    无
-* 返 回 值:    无
-*******************************************************************************/
-void ShowFocus(const struct MenuStructure *pMenu, MenuPara *pMenuPara)
-{
-    int i = 0;
-    int X_Offset = 0;
-
-    while((pMenu->MenuName[Device.Para.LanguageType][i++] == Space));
-
-    //-没有预留焦点符号的空间-
-    if (--i < 2)
-    {
-        return;
-    }
-
-    //-X_Offset = (i - 2) * EN_X_SIZE-
-    X_Offset = (i- 2) << EN_X_SIZE_Shift_Count;
-
-    ShowArrovw(X_Offset);
 }
 
 
@@ -1666,15 +1009,16 @@ void ShowBlock(unsigned int *pCode, int CodeLen, int X_Offset)
 
 /*******************************************************************************
 * 函数名称:    ShowNumbers
-* 函数功能:    显示数字
+* 函数功能:    
 * 输入参数:    Value,要显示的值(去除小数点后的值)
 *              BitCount,显示的位数(去除小数点后的位数,例如0.5的位数为2)
-*              DecimalBitCount,小数点位数
+*              DecimalBitCount,小数点位数(例如0.5的位数为2)
 *              X_Offset,显示的水平偏移0~128
+*              FrontZeroDisplay, = 1,有效数字前面的零也显示; 否则不显示.
 * 输出参数:    无
 * 返 回 值:    无
 *******************************************************************************/
-void ShowNumbers(unsigned int Value, int BitCount, int DecimalBitCount, int X_Offset)
+void ShowNumbers(unsigned int Value, int BitCount, int DecimalBitCount, int X_Offset, int FrontZeroDisplay)
 {
     int i = 0;
     int DecimalIndex = 0;
@@ -1700,7 +1044,14 @@ void ShowNumbers(unsigned int Value, int BitCount, int DecimalBitCount, int X_Of
     //-万-
     if (WanValue == 0)
     {
-        LongCode[0] = Space;
+        if (FrontZeroDisplay == 1)
+        {
+            LongCode[0] = WanValue + 0xA3B0;
+        }
+        else
+        {
+            LongCode[0] = Space;
+        }
     }
     else
     {
@@ -1711,7 +1062,14 @@ void ShowNumbers(unsigned int Value, int BitCount, int DecimalBitCount, int X_Of
     //-千-
     if ((QianValue == 0) && (WanValue == 0))
     {
-        LongCode[1] = Space;
+        if (FrontZeroDisplay == 1)
+        {
+            LongCode[1] = QianValue + 0xA3B0;
+        }
+        else
+        {
+            LongCode[1] = Space;
+        }
     }
     else
     {
@@ -1721,7 +1079,14 @@ void ShowNumbers(unsigned int Value, int BitCount, int DecimalBitCount, int X_Of
     //-百-
     if ((BaiValue == 0) && (QianValue == 0) && (WanValue == 0))
     {
-        LongCode[2] = Space;
+        if (FrontZeroDisplay == 1)
+        {
+            LongCode[2] = BaiValue + 0xA3B0;
+        }
+        else
+        {
+            LongCode[2] = Space;
+        }
     }
     else 
     {
@@ -1731,7 +1096,14 @@ void ShowNumbers(unsigned int Value, int BitCount, int DecimalBitCount, int X_Of
     //-十-
     if ((ShiValue == 0) && (BaiValue == 0) && (QianValue == 0) && (WanValue == 0))
     {
-        LongCode[3] = Space;
+        if (FrontZeroDisplay == 1)
+        {
+            LongCode[3] = ShiValue + 0xA3B0;
+        }
+        else
+        {
+            LongCode[3] = Space;
+        }
     }
     else
     {
@@ -1779,27 +1151,58 @@ void ShowNumbers(unsigned int Value, int BitCount, int DecimalBitCount, int X_Of
         }
         else
         {
-            //-==0时,显示0,所以要去除小数点所占的位置-
-            ShowBlock(&LongCode[5 - BitCount], BitCount, X_Offset + 8);
+            if (FrontZeroDisplay == 1)
+            {
+                ShowBlock(&LongCode[5 - BitCount], BitCount, X_Offset);
+            }
+            else
+            {
+                //-==0时,显示0,所以要去除小数点所占的位置-
+                ShowBlock(&LongCode[5 - BitCount], BitCount, X_Offset + 8);
+            }
         }
     }
 }
 
 
 /*******************************************************************************
-* 函数名称:    ShowOpening
-* 函数功能:    显示开度XX.X%
-* 输入参数:    Opening,开度值
+* 函数名称:    
+* 函数功能:    
+* 输入参数:    
 * 输出参数:    无
 * 返 回 值:    无
 *******************************************************************************/
-void ShowOpening(unsigned int Opening)
+void ShowInc_Dec(int LineIndex)
 {
-    ShowNumbers(Opening, 3, 0, 96);
+    int Index = 0;
+    int DisplayBufIndex = 0;
 
-    ClearBuf((unsigned char *)&LongCode, sizeof(LongCode));
-    LongCode[0] = 0xA3A5;        //-%-
-    ShowBlock(&LongCode[0], 1, 120);
+    if (LineIndex == 2)
+    {
+        DisplayBufIndex= 0;
+        //-打开一下:增大-
+        LongCode[Index++] = 0xB4F2;
+        LongCode[Index++] = 0xBFAA;
+        LongCode[Index++] = 0xD2BB;
+        LongCode[Index++] = 0xCFC2;
+        LongCode[Index++] = 0x3A;
+        LongCode[Index++] = 0xD4F6;
+        LongCode[Index++] = 0xB4F3;
+        ShowBlock(&LongCode[0], Index, DisplayBufIndex);
+    }
+    else if (LineIndex == 3)
+    {
+        DisplayBufIndex= 0;
+        //-关闭一下:减小-
+        LongCode[Index++] = 0xB9D8;
+        LongCode[Index++] = 0xB1D5;
+        LongCode[Index++] = 0xD2BB;
+        LongCode[Index++] = 0xCFC2;
+        LongCode[Index++] = 0x3A;
+        LongCode[Index++] = 0xBCF5;
+        LongCode[Index++] = 0xD0A1;
+        ShowBlock(&LongCode[0], Index, DisplayBufIndex);
+    }
 }
 
 
@@ -1828,80 +1231,175 @@ void ClearBuf(unsigned char *Buf, int BufLen)
 * 输出参数:    无
 * 返 回 值:    无
 *******************************************************************************/
-unsigned int GetNumOfErrors(void)
+void NormalPage_Special0(const MenuStructure *pMenu, MenuPara *pMenuPara, int Line)
 {
-    int i = 0;
-    unsigned char SeriousError = 0;
-    unsigned char SlightError = 0;
-    unsigned int ErrorCount = 0;
-
-    SeriousError = Device.Error.ErrorByte;
-    for (i = 0; i < 8; i++)
-    {
-        if ((SeriousError >> i & 0x01) == 1)
-        {
-            ErrorCount++;
-        }
-    }
-
-    SlightError = Valve.Error.ErrorByte;
-    for (i = 0; i < 8; i++)
-    {
-        if ((SlightError >> i & 0x01) == 1)
-        {
-            ErrorCount++;
-        }
-    }
-
-    return ErrorCount;
-}
-
-
-/*******************************************************************************
-* 函数名称:    
-* 函数功能:    
-* 输入参数:    
-* 输出参数:    无
-* 返 回 值:    无
-*******************************************************************************/
-void Opening_Special(const MenuStructure *pMenu, MenuPara *pMenuPara)
-{
-    ShowOpening(Valve.MiscInfo.CurOpening);
-}
-
-
-/*******************************************************************************
-* 函数名称:    
-* 函数功能:    
-* 输入参数:    
-* 输出参数:    无
-* 返 回 值:    无
-*******************************************************************************/
-void ValvePos_Special(const MenuStructure *pMenu, MenuPara *pMenuPara)
-{
-    unsigned int DisplayBufIndex = 0;
-
-    DisplayBufIndex = 80;
-    ShowNumbers(Valve.MiscInfo.PositionADValue, 5, 0, DisplayBufIndex);
-
-    ClearBuf((unsigned char *)&LongCode, sizeof(LongCode));
-    LongCode[0] = 0xA3A3;        //-#-
-    ShowBlock(&LongCode[0], 1, 120);
-}
-
-
-/*******************************************************************************
-* 函数名称:    
-* 函数功能:    
-* 输入参数:    
-* 输出参数:    无
-* 返 回 值:    无
-*******************************************************************************/
-void Normal_Special0(const MenuStructure *pMenu, MenuPara *pMenuPara)
-{
-    int i = 0;
+    int LineIndex = 0;
     int DisplayBufIndex = 0;
 
+    unsigned int  Code[4] = {0};
+
+    int i = 0;
+    int j = 0;
+    int Index = 0;
+    unsigned char HaveError = 0;
+    unsigned char IsMoving  = 0;
+    unsigned char Error = 0;
+    const unsigned short (*pError)[2][16];
+
+    /*--------------------------------第一行------------------------------------*/
+    LineIndex = 0;
+    ClearBuf(&g_DisplayBuf[0], Display_Buf_Size);
+
+    ClearBuf((unsigned char *)&Code[0], sizeof(Code));
+    if (Valve.Status.StatusBits.Opening == 1)
+    {
+        IsMoving = 1; 
+
+        Code[0] = 0xB4F2;    //-打-
+        Code[1] = 0xBFAA;    //-开-
+        Code[2] = 0xD6D0;    //-中-
+    }
+    else if(Valve.Status.StatusBits.Shutting == 1)
+    {
+        IsMoving = 1; 
+
+        Code[0] = 0xB9D8;    //-关-
+        Code[1] = 0xB1D5;    //-闭-
+        Code[2] = 0xD6D0;    //-中-
+    }
+    else if (Valve.Status.StatusBits.OpenLimit == 1)
+    {
+        Code[0] = 0xBFAA;    //-开-
+        Code[1] = 0xB5BD;    //-到-
+        Code[2] = 0xCEBB;    //-位-     
+    }
+    else if (Valve.Status.StatusBits.ShutLimit == 1)
+    {
+        Code[0] = 0xB9D8;    //-关-
+        Code[1] = 0xB5BD;    //-到-
+        Code[2] = 0xCEBB;    //-位-
+    }
+    else 
+    {
+    }
+
+    DisplayBufIndex = 0;
+    ShowBlock(&Code[0], 3, DisplayBufIndex);
+
+    /*-右上角部分显示优先级:严重错误、手轮手动、紧急状态、方向错误
+      -*/
+    ClearBuf((unsigned char *)&LongCode[0], sizeof(LongCode));
+    if (F_Disconnect == 1)
+    {
+        LongCode[Index++] = 0xCDA8;    //-通-
+        LongCode[Index++] = 0xD1B6;    //-讯-
+        LongCode[Index++] = 0xB6CF;    //-断-
+        LongCode[Index++] = 0xC1AC;    //-连-
+    }
+    else if (Device.Error.ErrorByte != 0)
+    {
+        HaveError = 1;
+    }
+    else if (Device.CommMode.CommModeBits.Manual == 1)
+    {
+        LongCode[Index++] = 0xCAD6;    //-手-
+        LongCode[Index++] = 0xC2D6;    //-轮-
+        LongCode[Index++] = 0xCAD6;    //-手-
+        LongCode[Index++] = 0xC2D6;    //-动-
+    }
+    else if (Device.Status.ESDStatus == ESDStatus_Valid)
+    {
+        LongCode[Index++] = 0xBDF4;    //-紧-
+        LongCode[Index++] = 0xBCB1;    //-急-
+        LongCode[Index++] = 0xD7B4;    //-状-
+        LongCode[Index++] = 0xCCAC;    //-态-
+    }
+    else if (Valve.Error.ErrorByte != 0)
+    {
+        HaveError = 1;
+    }
+    else if (IsMoving == 1)
+    {
+        LongCode[Index++] = 0x49;      //-I-
+        LongCode[Index++] = 0x3D;      //-=-
+        LongCode[Index++] = Space;
+        LongCode[Index++] = Space;
+        LongCode[Index++] = Space;
+        LongCode[Index++] = Space;
+        LongCode[Index++] = 0x41;      //-A-
+
+        DisplayBufIndex = 64;
+        ShowBlock(&LongCode[0], Index, DisplayBufIndex);
+
+        DisplayBufIndex += 16;
+        if (Device.Para.CurrentDecimalBits == CurrentDecimalBits_Two)
+        {
+            ShowNumbers(Valve.MiscInfo.Current, 3, 2, DisplayBufIndex, 1);
+        }
+        else
+        {
+            ShowNumbers(Valve.MiscInfo.Current, 3, 1, DisplayBufIndex, 1);
+        }
+
+        LcdRefresh(LineIndex);
+
+        return;    //-直接返回-
+    }
+    else
+    {
+    }
+
+
+    if (HaveError == 1)
+    {
+        if (Device.Error.ErrorByte != 0)
+        {
+            pError = &SeriousErrorArray[0];
+            Error = Device.Error.ErrorByte;
+        }
+        else if (Valve.Error.ErrorByte != 0)
+        {
+            pError = &SlightErrorArray[0];
+            Error = Valve.Error.ErrorByte;
+        }
+        else
+        {
+        }
+        for (i = 7; i >= 0; i--)
+        {
+            if (Error & (1 << i))
+            {
+                for (j = 0; j < 16; j++)
+                {
+                    LongCode[Index++] = pError[i][Device.Para.LanguageType][j];
+                }
+    
+                break;
+            }
+        }
+    }
+
+    DisplayBufIndex = 64;
+    ShowBlock(&LongCode[0], Index, DisplayBufIndex);
+
+    LcdRefresh(LineIndex);
+}
+
+
+/*******************************************************************************
+* 函数名称:    
+* 函数功能:    
+* 输入参数:    
+* 输出参数:    无
+* 返 回 值:    无
+*******************************************************************************/
+void NormalPage_Special1(const MenuStructure *pMenu, MenuPara *pMenuPara, int Line)
+{
+    int i = 0;
+
+    int LineIndex = 0;
+    int DisplayBufIndex = 0;
+    unsigned int  Code[4] = {0};
     signed int CurOpening = 0;
     
     unsigned char DummyData = 0;
@@ -1909,17 +1407,8 @@ void Normal_Special0(const MenuStructure *pMenu, MenuPara *pMenuPara)
     unsigned char ShiValue = 0;
     unsigned char GeValue =  0;
 
-    if ((Device.Error.ErrorByte != 0) || (Valve.Error.ErrorByte != 0))
-    {
-        Show_Page(Page_Error_ID);
-        NeedResetMenuPara = 1;
-        IsNeedChangePage = 1;
-
-        return;
-    }
-
-
-    /*--------------------------------第一行------------------------------------*/
+    /*--------------------------------第二行------------------------------------*/
+    LineIndex = 1;
     ClearBuf(&g_DisplayBuf[0], Display_Buf_Size); 
 
     //-----------当前开度特殊字符上半部分的处理-----------
@@ -1927,10 +1416,9 @@ void Normal_Special0(const MenuStructure *pMenu, MenuPara *pMenuPara)
     GetSingleNumber(CurOpening, &GeValue, &ShiValue, &BaiValue, &DummyData, &DummyData);
  
     //-百位-
-    DisplayBufIndex = 16;
+    DisplayBufIndex = 0;
     if (BaiValue == 0)
     {     
-        DisplayBufIndex += 16;
     }
     else
     {
@@ -1943,37 +1431,62 @@ void Normal_Special0(const MenuStructure *pMenu, MenuPara *pMenuPara)
         }
     }
     //-十位-
+    DisplayBufIndex = 16;
     if ((ShiValue == 0) && (BaiValue == 0))
-    {  
-        DisplayBufIndex += 16;         
+    {           
     }
     else
     {
         for (i = 0; i < 16; i++)
         {
-            g_DisplayBuf[DisplayBufIndex]       = SpecicalCharacter[ShiValue][0][i];
+            g_DisplayBuf[DisplayBufIndex]         = SpecicalCharacter[ShiValue][0][i];
             g_DisplayBuf[DisplayBufIndex + 128] = SpecicalCharacter[ShiValue][1][i];
 
             DisplayBufIndex++;
         }
     }
     //-个位-
+    DisplayBufIndex = 32;
     for (i = 0; i < 16; i++)
     {
-        g_DisplayBuf[DisplayBufIndex]       = SpecicalCharacter[GeValue][0][i];
+        g_DisplayBuf[DisplayBufIndex]         = SpecicalCharacter[GeValue][0][i];
         g_DisplayBuf[DisplayBufIndex + 128] = SpecicalCharacter[GeValue][1][i];
         
         DisplayBufIndex++;
     }
     //-%-
-    DisplayBufIndex += 16;
+    DisplayBufIndex = 48;
     for (i = 0; i < 16; i++)
     {
-        g_DisplayBuf[DisplayBufIndex]       = SpecicalCharacter[PercentIndex][0][i];
+        g_DisplayBuf[DisplayBufIndex]         = SpecicalCharacter[PercentIndex][0][i];
         g_DisplayBuf[DisplayBufIndex + 128] = SpecicalCharacter[PercentIndex][1][i];
 
         DisplayBufIndex++;
     }
+
+    //-----------丢信/目标-----------------
+    ClearBuf((unsigned char *)&Code[0], sizeof(Code));
+    if ((Device.CommMode.CommModeBits.Remote == 1) && (Device.Para.RemoteType == RemoteType_Regulate))
+    {
+        if (Valve.Status.StatusBits.NoSignal == 1)
+        {
+            Code[0] = 0xB6AA;    //-丢-  
+            Code[1] = 0xD0C5;    //-信-  
+        }
+        else
+        {
+            Code[0] = 0xC4BF;    //-目-  
+            Code[1] = 0xB1EA;    //-标-  
+        }
+    }
+    else
+    {
+    }
+
+    DisplayBufIndex = 96;
+    ShowBlock(&Code[0], 2, DisplayBufIndex);
+
+    LcdRefresh(LineIndex);
 }
 
 
@@ -1984,11 +1497,16 @@ void Normal_Special0(const MenuStructure *pMenu, MenuPara *pMenuPara)
 * 输出参数:    无
 * 返 回 值:    无
 *******************************************************************************/
-void Normal_Special1(const MenuStructure *pMenu, MenuPara *pMenuPara)
+void NormalPage_Special2(const MenuStructure *pMenu, MenuPara *pMenuPara, int Line)
 {
     int i = 0;
+
+    int LineIndex = 0;
     int DisplayBufIndex = 0;
 
+    unsigned int  Code[4] = {0};
+
+    signed int DstOpening = 0;
     signed int CurOpening = 0;
     
     unsigned char DummyData = 0;
@@ -1997,17 +1515,17 @@ void Normal_Special1(const MenuStructure *pMenu, MenuPara *pMenuPara)
     unsigned char GeValue =  0;
 
 
-    /*--------------------------------第二行------------------------------------*/
+    /*--------------------------------第三行------------------------------------*/
+    LineIndex = 2; 
     ClearBuf(&g_DisplayBuf[0], Display_Buf_Size);
 
     //-----------当前开度特殊字符下半部分的处理-----------
     CurOpening = Valve.MiscInfo.CurOpening;
     GetSingleNumber(CurOpening, &GeValue, &ShiValue, &BaiValue, &DummyData, &DummyData);
     //-百位-
-    DisplayBufIndex = 16;
+    DisplayBufIndex = 0;
     if (BaiValue == 0)
-    { 
-        DisplayBufIndex += 16;  
+    {     
     }
     else
     {
@@ -2020,9 +1538,9 @@ void Normal_Special1(const MenuStructure *pMenu, MenuPara *pMenuPara)
         }
     }
     //-十位-
+    DisplayBufIndex = 16;
     if ((ShiValue == 0) && (BaiValue == 0))
-    {   
-        DisplayBufIndex += 16;          
+    {           
     }
     else
     {
@@ -2035,6 +1553,7 @@ void Normal_Special1(const MenuStructure *pMenu, MenuPara *pMenuPara)
         }
     }
     //-个位-
+    DisplayBufIndex = 32;
     for (i = 0; i < 16; i++)
     {
         g_DisplayBuf[DisplayBufIndex]         = SpecicalCharacter[GeValue][2][i];
@@ -2043,7 +1562,7 @@ void Normal_Special1(const MenuStructure *pMenu, MenuPara *pMenuPara)
         DisplayBufIndex++;
     }
     //-%-
-    DisplayBufIndex += 16;
+    DisplayBufIndex = 48;
     for (i = 0; i < 16; i++)
     {
         g_DisplayBuf[DisplayBufIndex]         = SpecicalCharacter[PercentIndex][2][i];
@@ -2051,357 +1570,49 @@ void Normal_Special1(const MenuStructure *pMenu, MenuPara *pMenuPara)
 
         DisplayBufIndex++;
     }
-} 
 
-
-/*******************************************************************************
-* 函数名称:    
-* 函数功能:    
-* 输入参数:    
-* 输出参数:    无
-* 返 回 值:    无
-*******************************************************************************/
-void Normal_Special2(const MenuStructure *pMenu, MenuPara *pMenuPara)
-{
-    int Index = 0;
-    unsigned int DisplayBufIndex0 = 0;
-    unsigned int DisplayBufIndex1 = 0;
-
-    ClearBuf((unsigned char *)&LongCode, sizeof(LongCode));
-
-    //-模拟-
-    if (Device.Status.CurMode == ControlMode_RemoteAN)
+     //-----------空白/目标开度-----------------
+    BaiValue = 0;
+    ShiValue = 0;
+    GeValue  = 0;
+    DstOpening = (signed int)Valve.Operation.DstOpening;    //-考虑到开度不可能溢出-
+    GetSingleNumber(DstOpening, &GeValue, &ShiValue, &BaiValue, &DummyData, &DummyData);
+  
+    ClearBuf((unsigned char *)&Code[0], sizeof(Code));
+    if ((Device.CommMode.CommModeBits.Remote == 1) && (Device.Para.RemoteType == RemoteType_Regulate))
     {
-        if ((Valve.Status.StatusBits.NoSignal == 1) && (Device.Para.RemoteANMode == RemoteANMode_NoSigKeep))
+        if (Valve.Status.StatusBits.NoSignal == 1)
+        { 
+        }
+        else
         {
-            //-左部分-
-            DisplayBufIndex0 = 0;
-    
-            if (Device.Para.LanguageType == Language_EN)
+            if (BaiValue == 0)
             {
-                //-Remote-
-                LongCode[Index++] = 0x52;    
-                LongCode[Index++] = 0x65;    
-                LongCode[Index++] = 0x6D;    
-                LongCode[Index++] = 0x6F;   
-                LongCode[Index++] = 0x74;    
-                LongCode[Index++] = 0x65;   
-            }
-            else
-            {
-                LongCode[Index++] = 0xD4B6;    //-远-
-                LongCode[Index++] = 0xB3CC;    //-程-
-            }
-            
-            ShowBlock(&LongCode[0], Index, DisplayBufIndex0);
-    
-            //-右部分-
-            Index = 0;
-            DisplayBufIndex1 = 80;
-            ClearBuf((unsigned char *)&LongCode, sizeof(LongCode));
-    
-            if (Device.Para.RemoteIOMode == RemoteIOMode_Jog)
-            {
-                if (Device.Para.LanguageType == Language_EN)
-                {
-                    //-Jog-
-                    LongCode[Index++] = 0x4A;    
-                    LongCode[Index++] = 0x6F;    
-                    LongCode[Index++] = 0x67;      
-                }
-                else
-                {	
-                    LongCode[Index++] = 0xB5E3;    //-点-
-                    LongCode[Index++] = 0xB6AF;    //-动-
-                }
-            }
-            else if (Device.Para.RemoteIOMode == RemoteIOMode_Hold)
-            {
-                if (Device.Para.LanguageType == Language_EN)
-                {
-                    //-Hold-
-                    LongCode[Index++] = 0x48;    
-                    LongCode[Index++] = 0x6F;    
-                    LongCode[Index++] = 0x6C;   
-                    LongCode[Index++] = 0x64; 
-                }
-                else
-                {
-                    LongCode[Index++] = 0xB1A3;    //-保-
-                    LongCode[Index++] = 0xB3D6;    //-持-
-                }
+                Code[0] = 0xA3A0;              //-空格-  
             } 
             else
             {
-                if (Device.Para.LanguageType == Language_EN)
-                {
-                    //-Bi-Pos-
-                    LongCode[Index++] = 0x48;    
-                    LongCode[Index++] = 0x6F;    
-                    LongCode[Index++] = 0x6C;   
-                    LongCode[Index++] = 0x64; 
-                }
-                else
-                {
-                    LongCode[Index++] = 0xCBAB;    //-双-
-                    LongCode[Index++] = 0xCEBB;    //-位-
-                }
+                Code[0] = 0xA3B0 + BaiValue;    //-百-  
             }
-    
-            ShowBlock(&LongCode[0], Index, DisplayBufIndex1);
-        }
-        else
-        {
-            if (Device.Para.LanguageType == Language_EN)
+            if ((ShiValue == 0) && (BaiValue == 0))
             {
-                //-Remote Analog-
-                LongCode[Index++] = 0x52;    
-                LongCode[Index++] = 0x65;    
-                LongCode[Index++] = 0x6D;    
-                LongCode[Index++] = 0x6F;   
-                LongCode[Index++] = 0x74;    
-                LongCode[Index++] = 0x65;  
-                LongCode[Index++] = 0x20;    
-                LongCode[Index++] = 0x41;    
-                LongCode[Index++] = 0x6E;    
-                LongCode[Index++] = 0x61;   
-                LongCode[Index++] = 0x6C;    
-                LongCode[Index++] = 0x6F; 
-                LongCode[Index++] = 0x67;  
-     
-                DisplayBufIndex0 = 16;
-            }
+                Code[1] = 0xA3A0;              //-空格-  
+            } 
             else
             {
-                //-远程模拟-
-                LongCode[Index++] = 0xD4B6;    
-                LongCode[Index++] = 0xB3CC;    
-                LongCode[Index++] = 0xC4A3;    
-                LongCode[Index++] = 0xC4E2;
-    
-                DisplayBufIndex0 = 40;   
-            }
-    
-            ShowBlock(&LongCode[0], Index, DisplayBufIndex0);
-        }
-    }
-
-    //-远程-
-    else if ((Device.Status.CurMode == ControlMode_RemoteJog) || (Device.Status.CurMode == ControlMode_RemoteHold) || (Device.Status.CurMode == ControlMode_RemoteDibit))
-    {
-
-        //-左部分-
-        DisplayBufIndex0 = 0;
-
-        if (Device.Para.LanguageType == Language_EN)
-        {
-            //-Remote-
-            LongCode[Index++] = 0x52;    
-            LongCode[Index++] = 0x65;    
-            LongCode[Index++] = 0x6D;    
-            LongCode[Index++] = 0x6F;   
-            LongCode[Index++] = 0x74;    
-            LongCode[Index++] = 0x65;   
-        }
-        else
-        {
-            LongCode[Index++] = 0xD4B6;    //-远-
-            LongCode[Index++] = 0xB3CC;    //-程-
-        }
-        
-        ShowBlock(&LongCode[0], Index, DisplayBufIndex0);
-
-        //-右部分-
-        Index = 0;
-        DisplayBufIndex1 = 80;
-        ClearBuf((unsigned char *)&LongCode, sizeof(LongCode));
-
-        if (Device.Status.CurMode == ControlMode_RemoteJog)
-        {
-            if (Device.Para.LanguageType == Language_EN)
-            {
-                //-Jog-
-                LongCode[Index++] = 0x4A;    
-                LongCode[Index++] = 0x6F;    
-                LongCode[Index++] = 0x67;      
-            }
-            else
-            {	
-                LongCode[Index++] = 0xB5E3;    //-点-
-                LongCode[Index++] = 0xB6AF;    //-动-
-            }
-        }
-        else if (Device.Status.CurMode == ControlMode_RemoteHold)
-        {
-            if (Device.Para.LanguageType == Language_EN)
-            {
-                //-Hold-
-                LongCode[Index++] = 0x48;    
-                LongCode[Index++] = 0x6F;    
-                LongCode[Index++] = 0x6C;   
-                LongCode[Index++] = 0x64; 
-            }
-            else
-            {
-                LongCode[Index++] = 0xB1A3;    //-保-
-                LongCode[Index++] = 0xB3D6;    //-持-
-            }
-        } 
-        else
-        {
-            if (Device.Para.LanguageType == Language_EN)
-            {
-                //-Bi-Pos-
-                LongCode[Index++] = 0x48;    
-                LongCode[Index++] = 0x6F;    
-                LongCode[Index++] = 0x6C;   
-                LongCode[Index++] = 0x64; 
-            }
-            else
-            {
-                LongCode[Index++] = 0xCBAB;    //-双-
-                LongCode[Index++] = 0xCEBB;    //-位-
-            }
+                Code[1] = 0xA3B0 + ShiValue;    //-十-  
+            } 
+            Code[2] = 0xA3B0 + GeValue;         //-个-  
+            Code[3] = 0xA3A5;                   //-%-  
         }
 
-        ShowBlock(&LongCode[0], Index, DisplayBufIndex1);
-    }
-
-    //-现场-
-    else if ((Device.Status.CurMode == ControlMode_LocalJog) || (Device.Status.CurMode == ControlMode_LocalHold))
-    {
-        //-左部分-
-        DisplayBufIndex0 = 0;
-
-        if (Device.Para.LanguageType == Language_EN)
-        {
-            //-Local-
-            LongCode[Index++] = 0x4C;    
-            LongCode[Index++] = 0x6F;    
-            LongCode[Index++] = 0x63;    
-            LongCode[Index++] = 0x61;   
-            LongCode[Index++] = 0x6C;    
-        }
-        else
-        {
-            LongCode[Index++] = 0xCFD6;    //-现-
-            LongCode[Index++] = 0xB3A1;    //-场-
-        }
-
-        ShowBlock(&LongCode[0], Index, DisplayBufIndex0);
-
-
-        //-右部分-
-        Index = 0;
-        DisplayBufIndex1 = 80; 
-        ClearBuf((unsigned char *)&LongCode, sizeof(LongCode));
-       
-        if (Device.Status.CurMode == ControlMode_LocalHold)
-        {
-            if (Device.Para.LanguageType == Language_EN)
-            {
-                //-Hold-
-                LongCode[Index++] = 0x48;    
-                LongCode[Index++] = 0x6F;    
-                LongCode[Index++] = 0x6C;   
-                LongCode[Index++] = 0x64; 
-            }
-            else
-            {
-                LongCode[Index++] = 0xB1A3;    //-保-
-                LongCode[Index++] = 0xB3D6;    //-持-
-            }
-
-        }
-        else
-        {
-            if (Device.Para.LanguageType == Language_EN)
-            {
-                //-Jog-
-                LongCode[Index++] = 0x4A;    
-                LongCode[Index++] = 0x6F;    
-                LongCode[Index++] = 0x67;      
-            }
-            else
-            {
-                LongCode[Index++] = 0xB5E3;    //-点-
-                LongCode[Index++] = 0xB6AF;    //-动-
-            }
-        } 
-
-        ShowBlock(&LongCode[0], Index, DisplayBufIndex1);
+        DisplayBufIndex = 96;
+        ShowBlock(&Code[0], 4, DisplayBufIndex);
     }
     else
     {
-        DisplayBufIndex0 = 40;
-
-        if (Device.Para.LanguageType == Language_EN)
-        {
-            //-Stop-
-            LongCode[Index++] = 0x53;    
-            LongCode[Index++] = 0x74;    
-            LongCode[Index++] = 0x6F;    
-            LongCode[Index++] = 0x70;      
-        }
-        else
-        {
-            LongCode[Index++] = 0xCDA3;    //-停-
-            LongCode[Index++] = Space;
-            LongCode[Index++] = 0xD6B9;    //-止-
-        }
-
-        ShowBlock(&LongCode[0], Index, DisplayBufIndex0);
     }
-} 
-
-
-/*******************************************************************************
-* 函数名称:    
-* 函数功能:    
-* 输入参数:    
-* 输出参数:    无
-* 返 回 值:    无
-*******************************************************************************/
-void Error_Special0(const MenuStructure *pMenu, MenuPara *pMenuPara)
-{
-    int Index = 0;
-    int DisplayBufIndex =0;
-    unsigned int ErrorCount = 0;
-
-    ErrorCount = GetNumOfErrors();
-
-    if (ErrorCount == 0)
-    {
-        Show_Page(Page_Normal_ID);
-        NeedResetMenuPara = 1;
-        IsNeedChangePage = 1;
-
-        return;
-    }
-
-    DisplayBufIndex = 32;
-    ShowNumbers(ErrorCount, 2, 0, DisplayBufIndex);
-    DisplayBufIndex += 16;
-    
-    ClearBuf((unsigned char *)&LongCode, sizeof(LongCode));
-    if (Device.Para.LanguageType == Language_EN)
-    {
-        //- Errors-
-        LongCode[Index++] = 0x20;    
-        LongCode[Index++] = 0x45;    
-        LongCode[Index++] = 0x72;    
-        LongCode[Index++] = 0x72;    
-        LongCode[Index++] = 0x6F;    
-        LongCode[Index++] = 0x72;    
-        LongCode[Index++] = 0x73;    
-    }
-    else
-    {
-        LongCode[Index++] = 0xD6D6;    //-种-
-        LongCode[Index++] = 0xB9CA;    //-故-
-        LongCode[Index++] = 0xD5CF;    //-障-
-    }
-    ShowBlock(&LongCode[0], Index, DisplayBufIndex);
+    LcdRefresh(LineIndex);
 }
 
 
@@ -2412,120 +1623,77 @@ void Error_Special0(const MenuStructure *pMenu, MenuPara *pMenuPara)
 * 输出参数:    无
 * 返 回 值:    无
 *******************************************************************************/
-void Error_Special1(const MenuStructure *pMenu, MenuPara *pMenuPara)
+void NormalPage_Special3(const MenuStructure *pMenu, MenuPara *pMenuPara, int Line)
 {
-    int Index = 0;
-    int i = 0;
-    int j = 0;
+    int LineIndex = 0;
     int DisplayBufIndex = 0;
 
-    unsigned char SeriousError = 0;
-    unsigned char SlightError  = 0;
-    unsigned char Error        = 0;
-    const unsigned short (*pError)[2][16];
+    unsigned int  Code[4] = {0};
 
+    /*--------------------------------第四行------------------------------------*/
+    LineIndex = 3;  
+    ClearBuf(&g_DisplayBuf[0], Display_Buf_Size);   
 
-    SeriousError = Device.Error.ErrorByte;
-    SlightError = Valve.Error.ErrorByte;
-
-    ClearBuf((unsigned char *)&LongCode, sizeof(LongCode));
-
-
-    if (SeriousError != 0)
+    ClearBuf((unsigned char *)&Code[0], sizeof(Code));
+    switch(Device.WorkMode.CurWorkMode)
     {
-        Error = SeriousError;
-        pError = SeriousErrorArray;
+    case 0:
+        Code[0] = 0xD4B6;    //-远-  
+        Code[1] = 0xB3CC;    //-程-  
+        Code[2] = 0xCDA8;    //-通-  
+        Code[3] = 0xD0C5;    //-信- 
+        break;
+    case 1:
+        Code[0] = 0xD4B6;    //-远-  
+        Code[1] = 0xB3CC;    //-程-  
+        Code[2] = 0xC4A3;    //-模-  
+        Code[3] = 0xC4E2;    //-拟- 
+        break;
+    case 2:
+        Code[0] = 0xD4B6;    //-远-  
+        Code[1] = 0xB3CC;    //-程-  
+        Code[2] = 0xB5E3;    //-点-  
+        Code[3] = 0xB6AF;    //-动- 
+        break;
+    case 3:
+        Code[0] = 0xD4B6;    //-远-  
+        Code[1] = 0xB3CC;    //-程-  
+        Code[2] = 0xB1A3;    //-保-  
+        Code[3] = 0xB3D6;    //-持- 
+        break;
+    case 4:
+        Code[0] = 0xD4B6;    //-远-  
+        Code[1] = 0xB3CC;    //-程-  
+        Code[2] = 0xCBAB;    //-双-  
+        Code[3] = 0xCEBB;    //-位- 
+        break;
+    case 5:
+        Code[0] = 0xCFD6;    //-现-  
+        Code[1] = 0xB3A1;    //-场-  
+        Code[2] = 0xB5E3;    //-点-  
+        Code[3] = 0xB6AF;    //-动- 
+        break;
+    case 6:
+        Code[0] = 0xCFD6;    //-现-  
+        Code[1] = 0xB3A1;    //-场-  
+        Code[2] = 0xB1A3;    //-保-  
+        Code[3] = 0xB3D6;    //-持- 
+        break;
+    case 7:
+        Code[0] = 0xCDA3;    //-停-  
+        Code[1] = 0;
+        Code[2] = 0;
+        Code[3] = 0xD6B9;    //-止-  
+        break;
+    default:
+        break;
     }
-    else
-    {
-        Error = SlightError;
-        pError = SlightErrorArray;
-    }
+   
+    DisplayBufIndex = 32;
+ 
+    ShowBlock(&Code[0], 4, DisplayBufIndex);
 
-
-    for (i = 7; i >= 0; i--)
-    {
-        if (Error & (0x01 << i))
-        {
-            for (j = 0; j < 16; j++)
-            {
-                LongCode[Index++] = pError[i][Device.Para.LanguageType][j];
-            }
-
-            break;
-        }
-    }
-
-    if (Device.Para.LanguageType == Language_EN)
-    {
-        DisplayBufIndex = 0;
-    }
-    else
-    {
-        DisplayBufIndex = 32;
-    }
-
-    ShowBlock(&LongCode[0], Index, DisplayBufIndex);
-}
-
-
-/*******************************************************************************
-* 函数名称:    
-* 函数功能:    
-* 输入参数:    
-* 输出参数:    无
-* 返 回 值:    无
-*******************************************************************************/
-void StandardMenu_Reset0(MenuPara *pMenuPara)
-{
-    if (pMenuPara->IsMultiplex == Multiplex_Digit)
-    {
-        DigitInputCount = 0;
-    }
-    pMenuPara->FocusMenuIndex = pMenuPara->FocusStartMenuIndex;
-}
-
-
-/*******************************************************************************
-* 函数名称:    
-* 函数功能:    
-* 输入参数:    
-* 输出参数:    无
-* 返 回 值:    无
-*******************************************************************************/
-void StandardMenu_SetKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
-{
-    if (pMenu->ChildMenuID != InvalidMenuID)
-    {
-        NeedResetMenuPara = 1;
-        IsNeedChangePage = 1;
-        Show_Page(pMenu->ChildMenuID);
-    }
-    else if (pMenu->ParentMenuID != InvalidMenuID)
-    {
-        IsNeedChangePage = 1;
-        Show_Page(pMenu->ParentMenuID);
-    }
-}
-
-
-/*******************************************************************************
-* 函数名称:    
-* 函数功能:    
-* 输入参数:    
-* 输出参数:    无
-* 返 回 值:    无
-*******************************************************************************/
-void StandardMenu_UpKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
-{
-    if (pMenuPara->FocusMenuIndex == pMenuPara->FocusStartMenuIndex)
-    {
-        pMenuPara->FocusMenuIndex = pMenuPara->NumOfItems - 1;
-    }
-    else
-    {
-        pMenuPara->FocusMenuIndex--;
-    }
+    LcdRefresh(LineIndex);
 }
 
 
@@ -2571,13 +1739,9 @@ void StandardMenu_Set2Child(const MenuStructure *pMenu, MenuPara *pMenuPara)
 * 输出参数:    无
 * 返 回 值:    无
 *******************************************************************************/
-void StandardMenu_DownKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
+void StandardMenu_Reset0(MenuPara *pMenuPara)
 {
-    pMenuPara->FocusMenuIndex++;
-    if (pMenuPara->FocusMenuIndex >= pMenuPara->NumOfItems)
-    {
-        pMenuPara->FocusMenuIndex = pMenuPara->FocusStartMenuIndex;
-    }
+    pMenuPara->RowIndex = 0;
 }
 
 
@@ -2588,131 +1752,37 @@ void StandardMenu_DownKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
 * 输出参数:    无
 * 返 回 值:    无
 *******************************************************************************/
-void Language_SetKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
+void StandardMenu_Reset1(MenuPara *pMenuPara)
 {
-    unsigned char PreLanguage = 0;
-    
-    PreLanguage = Device.Para.LanguageType;
+    pMenuPara->ColumnIndex = 3;
+}
 
-    if (pMenuPara->FocusMenuIndex == 3)
+
+/*******************************************************************************
+* 函数名称:    
+* 函数功能:    
+* 输入参数:    
+* 输出参数:    无
+* 返 回 值:    无
+*******************************************************************************/
+void StandardMenu_SetKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
+{
+    //-标准菜单最后1行一般为"返回上级"-
+    if (pMenuPara->RowIndex == pMenuPara->NumOfRows - 1)
     {
-        Device.Para.LanguageType = Language_EN;
+        if (pMenu->ParentMenuID != InvalidMenuID)
+        {
+            IsNeedChangePage = 1;
+            Show_Page(pMenu->ParentMenuID);
+        }
     }
     else
     {
-        Device.Para.LanguageType = Language_CN;
-    }
-
-    StandardMenu_SetKey(pMenu, pMenuPara);
-
-    if (PreLanguage != Device.Para.LanguageType)
-    {
-        //-写入EEPROM-
-        STM_EEPROM_Write((unsigned char *)&Device.Para.LanguageType, EEPROM_ADDR_LANGUAGETYPE, sizeof(Device.Para.LanguageType));
-    }
-}
-
-
-/*******************************************************************************
-* 函数名称:    
-* 函数功能:    
-* 输入参数:    
-* 输出参数:    无
-* 返 回 值:    无
-*******************************************************************************/
-void Password_Reset(MenuPara *pMenuPara)
-{
-    int i = 0;
-
-    for (i = 0; i < PasswordNum; i++)
-    {
-        PasswordInput[i] = InitPassword;
-    }
-   
-    DigitInputCount = 0;
-}
-
-
-/*******************************************************************************
-* 函数名称:    
-* 函数功能:    
-* 输入参数:    
-* 输出参数:    无
-* 返 回 值:    无
-*******************************************************************************/
-void Password_Special(const MenuStructure *pMenu, MenuPara *pMenuPara)
-{
-    int i = 0;
-    int DisplayBufIndex = 0;
-    unsigned int Code = 0;
-
-    DisplayBufIndex = 32;
-    for (i = 0; i < PasswordNum; i++)
-    {
-        if (DigitInputCount == i)
+        if (pMenu->ChildMenuID != InvalidMenuID)
         {
-            Code = GBK_Triangle;
-        }
-        else
-        {
-            Code = Space;
-        }
-
-        ShowBlock(&Code, 1, DisplayBufIndex);
-        DisplayBufIndex += EN_X_SIZE;
-
-
-        if (PasswordInput[i] == InitPassword)
-        {
-            Code = 0xA3AA;
-        }
-        else
-        {
-            Code = PasswordInput[i] + 0xA3B0;
-        }
-        
-        ShowBlock(&Code, 1, DisplayBufIndex);
-        DisplayBufIndex += EN_X_SIZE;
-    }
-}
-
-
-/*******************************************************************************
-* 函数名称:    
-* 函数功能:    
-* 输入参数:    
-* 输出参数:    无
-* 返 回 值:    无
-*******************************************************************************/
-void Password_SetKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
-{
-    int i = 0;
-
-    if (DigitInputCount < PasswordNum - 1)
-    {
-        if (PasswordInput[DigitInputCount] != InitPassword)
-        {
-            DigitInputCount++;
-        }
-    }
-    else if (PasswordInput[DigitInputCount] != InitPassword)
-    {
-        for(i = 0; i < PasswordNum; i++)
-        {
-            if (PasswordInput[i] != Password[i])
-            {
-                //-返回上一级-
-                StandardMenu_Back2Parent(pMenu, pMenuPara);
-                return;
-            }
-        }
-
-        if (i == PasswordNum)
-        {
-            //-返回下一级-
-            StandardMenu_Set2Child(pMenu, pMenuPara);
-            
-            return;
+            NeedResetMenuPara = 1;
+            IsNeedChangePage = 1;
+            Show_Page(pMenu->ChildMenuID);
         }
     }
 }
@@ -2725,11 +1795,12 @@ void Password_SetKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
 * 输出参数:    无
 * 返 回 值:    无
 *******************************************************************************/
-void Password_UpKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
+void StandardMenu_UpKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
 {
-    if (DigitInputCount !=  0)
+    pMenuPara->RowIndex--;
+    if (pMenuPara->RowIndex < 0)
     {
-        DigitInputCount--;
+        pMenuPara->RowIndex = pMenuPara->NumOfRows - 1;
     }
 }
 
@@ -2741,14 +1812,12 @@ void Password_UpKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
 * 输出参数:    无
 * 返 回 值:    无
 *******************************************************************************/
-void Password_DownKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
+void StandardMenu_DownKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
 {
-    if (DigitInputCount < PasswordNum - 1)
+    pMenuPara->RowIndex++;
+    if (pMenuPara->RowIndex >= pMenuPara->NumOfRows)
     {
-        if (PasswordInput[DigitInputCount] != InitPassword)
-        {
-            DigitInputCount++;
-        }
+        pMenuPara->RowIndex = 0;
     }
 }
 
@@ -2760,119 +1829,84 @@ void Password_DownKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
 * 输出参数:    无
 * 返 回 值:    无
 *******************************************************************************/
-void Password_IncKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
+void AdjustZeroFull_Special(const MenuStructure *pMenu, MenuPara *pMenuPara, int LineIndex)
 {
-    if (PasswordInput[DigitInputCount] == InitPassword)
-    {
-        PasswordInput[DigitInputCount] = 0;
-    }
-    else if (PasswordInput[DigitInputCount] == 0x09)
-    {
-        PasswordInput[DigitInputCount] = 0;
-    }
-    else 
-    {
-        PasswordInput[DigitInputCount]++;
-    }
-}
-
-
-/*******************************************************************************
-* 函数名称:    
-* 函数功能:    
-* 输入参数:    
-* 输出参数:    无
-* 返 回 值:    无
-*******************************************************************************/
-void Password_DecKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
-{
-    if (PasswordInput[DigitInputCount] == InitPassword)
-    {
-        PasswordInput[DigitInputCount] = 0x09;
-    }
-    else if (PasswordInput[DigitInputCount] == 0)
-    {
-        PasswordInput[DigitInputCount] = 0x09;
-    }
-    else 
-    {
-        PasswordInput[DigitInputCount]--;
-    }
-}
-
-
-/*******************************************************************************
-* 函数名称:    
-* 函数功能:    
-* 输入参数:    
-* 输出参数:    无
-* 返 回 值:    无
-*******************************************************************************/
-void ESDSetting_Reset(MenuPara *pMenuPara)
-{
-    StandardMenu_Reset0(pMenuPara);
-
-    switch(Device.Para.ESDMode)
-    {
-    case ESD_Disable:
-        pMenuPara->FocusMenuIndex = 3;
-        break;
-    case ESD_NoAction:
-        pMenuPara->FocusMenuIndex = 4;
-        break;
-    case ESD_Open:
-        pMenuPara->FocusMenuIndex = 5;
-        break;
-    case ESD_Shut:
-        pMenuPara->FocusMenuIndex = 6;
-        break;
-    case ESD_Middle:
-        pMenuPara->FocusMenuIndex = 7;
-        break;
-    default:
-        break;
-    }
-}
-
-
-/*******************************************************************************
-* 函数名称:    
-* 函数功能:    
-* 输入参数:    
-* 输出参数:    无
-* 返 回 值:    无
-*******************************************************************************/
-void ESDSetting_Special(const MenuStructure *pMenu, MenuPara *pMenuPara)
-{
-    int j = 0;
     int Index = 0;
-
-    int MenuNameIndex   = 0;
     int DisplayBufIndex = 0;
-         
-    unsigned int  Code = 0;
 
-    ClearBuf(&g_DisplayBuf[0], Display_Buf_Size);
-    ClearBuf((unsigned char *)&LongCode, sizeof(LongCode));
-    for (j = 0; j < 16;     )    //-把j++放到循环体中-
+    ClearBuf((unsigned char *)&LongCode[0], sizeof(LongCode));
+    if (Device.Flag.FlagBits.IsInLocalAdjust == 1)
     {
-        Code = Menu_ESDSetting[pMenuPara->FocusMenuIndex].MenuName[Device.Para.LanguageType][MenuNameIndex++];
-        LongCode[Index++] = Code;
-        if (((Code >> 8) & 0xFF) >= 0xB0)    //-中文字符-
+        pMenuPara->ColumnReverseSwitch = Disable;
+        ClearBuf(&g_DisplayBuf[0], Display_Buf_Size);
+
+        if (LineIndex == 0)
         {
-  
-            j += 2;             //!!!!j在循环体中累加
+            DisplayBufIndex= 16;
+            //-当前位置#xxxx-
+            LongCode[Index++] = 0xB5B1;
+            LongCode[Index++] = 0xC7B0;
+            LongCode[Index++] = 0xCEBB;
+            LongCode[Index++] = 0xD6C3;
+            LongCode[Index++] = 0x23;
+            ShowBlock(&LongCode[0], Index, DisplayBufIndex);
+
+            DisplayBufIndex += 72;
+            ShowNumbers(Valve.MiscInfo.PositionValue, 5, 0, DisplayBufIndex, 1);
         }
-        else
+        else if (LineIndex == 1)
         {
-
-            j += 1;             //!!!!j在循环体中累加
-        }        
+            DisplayBufIndex= 0;
+            //-操作旋钮可无限位-
+            LongCode[Index++] = 0xB2D9;
+            LongCode[Index++] = 0xD7F7;
+            LongCode[Index++] = 0xD0FD;
+            LongCode[Index++] = 0xC5A5;
+            LongCode[Index++] = 0xBFC9;
+            LongCode[Index++] = 0xCEDE;
+            LongCode[Index++] = 0xCFDE;
+            LongCode[Index++] = 0xCEBB;
+            ShowBlock(&LongCode[0], Index, DisplayBufIndex);
+        }
+        else if (LineIndex == 2)
+        {
+            DisplayBufIndex= 0;
+            //-调整阀门位置，返-
+            LongCode[Index++] = 0xB5F7;
+            LongCode[Index++] = 0xD5FB;
+            LongCode[Index++] = 0xB7A7;
+            LongCode[Index++] = 0xC3C5;
+            LongCode[Index++] = 0xCEBB;
+            LongCode[Index++] = 0xD6C3;
+            LongCode[Index++] = 0xA3AC;
+            LongCode[Index++] = 0xB7B5;
+            ShowBlock(&LongCode[0], Index, DisplayBufIndex);
+        }
+        else if (LineIndex == 3)
+        {
+            DisplayBufIndex= 0;
+            //-回停止位完成标定-
+            LongCode[Index++] = 0xBBD8;
+            LongCode[Index++] = 0xCDA3;
+            LongCode[Index++] = 0xD6B9;
+            LongCode[Index++] = 0xCEBB;
+            LongCode[Index++] = 0xCDEA;
+            LongCode[Index++] = 0xB3C9;
+            LongCode[Index++] = 0xB1EA;
+            LongCode[Index++] = 0xB6A8;
+            ShowBlock(&LongCode[0], Index, DisplayBufIndex);
+        }
     }
+    else
+    {
+        pMenuPara->ColumnReverseSwitch = Enable;
 
-    ShowBlock(&LongCode[0], Index++, DisplayBufIndex);
-
-    ShowFocus(&Menu_ESDSetting[pMenuPara->FocusMenuIndex], pMenuPara);
+        DisplayBufIndex = 88;
+        if (LineIndex == 0)
+        {
+            ShowNumbers(Valve.MiscInfo.PositionValue, 5, 0, DisplayBufIndex, 1);
+        }
+    }
 }
 
 
@@ -2883,30 +1917,333 @@ void ESDSetting_Special(const MenuStructure *pMenu, MenuPara *pMenuPara)
 * 输出参数:    无
 * 返 回 值:    无
 *******************************************************************************/
-void ESDSetting_SetKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
+void AdjustZeroFull_SetKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
 {
-    switch(pMenuPara->FocusMenuIndex)
+    if (pMenuPara->ColumnIndex == 3)    //-确定-
     {
-    case 3:
-        Device.Para.ESDMode = ESD_Disable;
-        break;
-    case 4:
-        Device.Para.ESDMode = ESD_NoAction;
-        break;
-    case 5:
-        Device.Para.ESDMode = ESD_Open;
-        break;
-    case 6:
-        Device.Para.ESDMode = ESD_Shut;
-        break;
-    case 7:
-        Device.Para.ESDMode = ESD_Middle;
-        break;
-    default:
-        break;
+        if (PageFunctionIndex == Page_AdjustFull_ID)
+        {
+            Valve.Adjust.Adjust0.Adjust0Bits.Full = 1;
+            Valve.Adjust.Adjust0.Adjust0Bits.Zero = 0;
+
+            CurrentAdjustType = Frame_AdjustFull;
+        }
+        else
+        {
+            Valve.Adjust.Adjust0.Adjust0Bits.Full = 0;
+            Valve.Adjust.Adjust0.Adjust0Bits.Zero = 1;
+
+            CurrentAdjustType = Frame_AdjustZero;
+        }
+
+        F_WaitAdjustFrame   = 1;
+
+        SetTimer(WaitReplyTimer, WaitReply_Delay);
     }
-     
-    StandardMenu_SetKey(pMenu, pMenuPara);
+    else
+    {
+        if (pMenu->ParentMenuID != InvalidMenuID)
+        {
+            IsNeedChangePage = 1;
+            Show_Page(pMenu->ParentMenuID);
+        }
+    }
+}
+
+
+/*******************************************************************************
+* 函数名称:    
+* 函数功能:    
+* 输入参数:    
+* 输出参数:    无
+* 返 回 值:    无
+*******************************************************************************/
+void AdjustZeroFull_UpKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
+{
+    pMenuPara->ColumnIndex += 6;
+    if (pMenuPara->ColumnIndex > 9)
+    {
+        pMenuPara->ColumnIndex = 3;
+    }
+}
+
+
+/*******************************************************************************
+* 函数名称:    
+* 函数功能:    
+* 输入参数:    
+* 输出参数:    无
+* 返 回 值:    无
+*******************************************************************************/
+void AdjustZeroFull_DownKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
+{
+    pMenuPara->ColumnIndex -= 6;
+    if (pMenuPara->ColumnIndex < 3)
+    {
+        pMenuPara->ColumnIndex = 9;
+    }
+}
+
+
+/*******************************************************************************
+* 函数名称:    
+* 函数功能:    
+* 输入参数:    
+* 输出参数:    无
+* 返 回 值:    无
+*******************************************************************************/
+void LocalMode_Special(const MenuStructure *pMenu, MenuPara *pMenuPara, int LineIndex)
+{
+    int DisplayBufIndex = 0;
+
+    if ((LineIndex == 0) && (Device.Para.LocalMode == LocalMode_Jog))
+    {
+        DisplayBufIndex = 96;
+        ShowStar(DisplayBufIndex);
+    }
+    else if ((LineIndex == 1) && (Device.Para.LocalMode == LocalMode_Hold))
+    {
+        DisplayBufIndex = 96;
+        ShowStar(DisplayBufIndex);
+    }
+}
+
+
+/*******************************************************************************
+* 函数名称:    
+* 函数功能:    
+* 输入参数:    
+* 输出参数:    无
+* 返 回 值:    无
+*******************************************************************************/
+void LocalMode_SetKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
+{
+    if (pMenuPara->RowIndex == 0)    //-点动-
+    {
+        Device.Para.LocalMode = LocalMode_Jog;
+    }
+    else if (pMenuPara->RowIndex == 1)    //-保持-
+    {
+        Device.Para.LocalMode = LocalMode_Hold;
+    }
+}
+
+
+/*******************************************************************************
+* 函数名称:    
+* 函数功能:    
+* 输入参数:    
+* 输出参数:    无
+* 返 回 值:    无
+*******************************************************************************/
+void RemoteIOMode_Special(const MenuStructure *pMenu, MenuPara *pMenuPara, int LineIndex)
+{    
+    int DisplayBufIndex = 0;
+
+    if ((LineIndex == 0) )
+    {
+        if (Device.Para.RemoteIOMode == RemoteIOMode_Jog)
+        {
+            DisplayBufIndex = 96;
+            ShowStar(DisplayBufIndex);
+        }
+    }
+    else if ((LineIndex == 1))
+    {
+        if (Device.Para.RemoteIOMode == RemoteIOMode_HoldNormallyOpen)
+        {
+            DisplayBufIndex = 112;
+            ShowStar(DisplayBufIndex);
+        }
+    }
+    else if ((LineIndex == 2) )
+    {
+        if (Device.Para.RemoteIOMode == RemoteIOMode_HoldNormallyShut)
+        {
+            DisplayBufIndex = 112;
+            ShowStar(DisplayBufIndex);
+        }
+    }
+    else if ((LineIndex == 3) )
+    {
+        if (Device.Para.RemoteIOMode == RemoteIOMode_SignalOnNoOff)
+        {
+            DisplayBufIndex = 96;
+            ShowStar(DisplayBufIndex);
+        }
+    }
+    else if ((LineIndex == 4) )
+    {
+        if (Device.Para.RemoteIOMode == RemoteIOMode_SignalOffNoOn)
+        {
+            DisplayBufIndex = 96;
+            ShowStar(DisplayBufIndex);
+        }
+    }
+}
+
+
+/*******************************************************************************
+* 函数名称:    
+* 函数功能:    
+* 输入参数:    
+* 输出参数:    无
+* 返 回 值:    无
+*******************************************************************************/
+void RemoteIOMode_SetKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
+{    
+    if (pMenuPara->RowIndex == 0)
+    {
+        Device.Para.RemoteIOMode = RemoteIOMode_Jog;
+    }
+    else if (pMenuPara->RowIndex == 1)
+    {
+        Device.Para.RemoteIOMode = RemoteIOMode_HoldNormallyOpen;
+    }
+    else if (pMenuPara->RowIndex == 2)
+    {
+        Device.Para.RemoteIOMode = RemoteIOMode_HoldNormallyShut;
+    }
+    else if (pMenuPara->RowIndex == 3)
+    {
+        Device.Para.RemoteIOMode = RemoteIOMode_SignalOnNoOff;
+    }
+    else if (pMenuPara->RowIndex == 4)
+    {
+        Device.Para.RemoteIOMode = RemoteIOMode_SignalOffNoOn;
+    }
+}
+
+
+/*******************************************************************************
+* 函数名称:    
+* 函数功能:    
+* 输入参数:    
+* 输出参数:    无
+* 返 回 值:    无
+*******************************************************************************/
+void RemoteANMode_Special(const MenuStructure *pMenu, MenuPara *pMenuPara, int LineIndex)
+{    
+    int DisplayBufIndex = 0;
+
+    if ((LineIndex == 1) && (Device.Para.RemoteANMode == RemoteANMode_NoSigKeep))
+    {
+        DisplayBufIndex = 64;
+        ShowStar(DisplayBufIndex);
+    }
+    else if ((LineIndex == 2) && (Device.Para.RemoteANMode == RemoteANMode_NoSigShut))
+    {
+        DisplayBufIndex = 64;
+        ShowStar(DisplayBufIndex);
+    }
+    else if ((LineIndex == 3) && (Device.Para.RemoteANMode == RemoteANMode_NoSigMid))
+    {
+        DisplayBufIndex = 64;
+        ShowStar(DisplayBufIndex);
+    }
+    else if ((LineIndex == 4) && (Device.Para.RemoteANMode == RemoteANMode_NoSigOpen))
+    {
+        DisplayBufIndex = 64;
+        ShowStar(DisplayBufIndex);
+    }
+}
+
+
+/*******************************************************************************
+* 函数名称:    
+* 函数功能:    
+* 输入参数:    
+* 输出参数:    无
+* 返 回 值:    无
+*******************************************************************************/
+void RemoteANMode_SetKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
+{
+    if (pMenuPara->RowIndex == 1)
+    {
+        Device.Para.RemoteANMode = RemoteANMode_NoSigKeep;
+    }
+    else if (pMenuPara->RowIndex == 2)
+    {
+        Device.Para.RemoteANMode = RemoteANMode_NoSigShut;
+    }
+    else if (pMenuPara->RowIndex == 3)
+    {
+        Device.Para.RemoteANMode = RemoteANMode_NoSigMid;
+    }
+    else if (pMenuPara->RowIndex == 4)
+    {
+        Device.Para.RemoteANMode = RemoteANMode_NoSigOpen;
+    }
+}
+
+
+/*******************************************************************************
+* 函数名称:    
+* 函数功能:    
+* 输入参数:    
+* 输出参数:    无
+* 返 回 值:    无
+*******************************************************************************/
+void DeadZone_Special(const MenuStructure *pMenu, MenuPara *pMenuPara, int LineIndex)
+{
+    unsigned int Code[5] = {0};
+
+    unsigned int  DeadZone = 0;
+    int DisplayBufIndex = 0;
+    
+
+    if (Device.Flag.FlagBits.IsInLocalAdjust == 1)
+    {
+        ClearBuf(&g_DisplayBuf[0], sizeof(g_DisplayBuf));
+
+        pMenuPara->RowIndex = 1;
+        pMenuPara->ColumnIndex = 6;
+        pMenuPara->ColumnReverseUnit = 5;
+    }
+    else 
+    {
+        pMenuPara->RowIndex = 2;
+        pMenuPara->ColumnIndex = 4;
+        pMenuPara->ColumnReverseUnit = 8;
+    }    
+
+    if (LineIndex == 1)
+    {
+        //-范围:1~20-
+        if (Device.Para.DeadZone <= 20)
+        {
+            //-DeadZone = Device.Para.DeadZone * 5-
+            DeadZone = (Device.Para.DeadZone << 2) + Device.Para.DeadZone;
+        }
+
+        if (DeadZone < 5)
+        {
+            //-自适应-
+            Code[0] = 0xD7D4;
+            Code[1] = 0xCACA;
+            Code[2] = 0xD3A6;
+            DisplayBufIndex = 48;
+    
+            ShowBlock(&Code[0], 5, DisplayBufIndex);
+        }
+        else
+        {
+            DisplayBufIndex = 48;
+            ShowNumbers(DeadZone, 3, 1, DisplayBufIndex, 0);
+            
+            //-%-
+            DisplayBufIndex += 32;
+            Code[0] = 0x25;
+            ShowBlock(&Code[0], 1, DisplayBufIndex);
+        }
+    }
+    else
+    {
+        if (Device.Flag.FlagBits.IsInLocalAdjust == 1)
+        {
+            ShowInc_Dec(LineIndex);
+        }
+    }
 }
 
 
@@ -2955,143 +2292,510 @@ void DeadZone_DecKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
 * 输出参数:    无
 * 返 回 值:    无
 *******************************************************************************/
-void DeadZone_Special(const MenuStructure *pMenu, MenuPara *pMenuPara)
+void Password_Special(const MenuStructure *pMenu, MenuPara *pMenuPara, int LineIndex)
+{
+    int i = 0;
+    int DisplayBufIndex = 0;
+    unsigned int Code = 0;
+    unsigned char FontBuf[32] = {0};
+    unsigned char FontBufLen = 0;
+
+    if (LineIndex == 2)
+    {
+        DisplayBufIndex = 4 << EN_X_SIZE_Shift_Count;
+        for (i = 0; i < 4; i++)
+        {
+            Code = Password[i] + 0xA3B0;
+            GetDotData(Code, EN_Character, &FontBuf[0], &FontBufLen);
+            SwapFontBuf2DisplayBuf(FontBuf, FontBufLen, &g_DisplayBuf[0], DisplayBufIndex);
+    
+            DisplayBufIndex += EN_X_SIZE + EN_X_SIZE;
+        }
+    }
+    else if (LineIndex == 3)
+    {
+        if (PasswordErrorCount == 0)
+        {
+            ClearBuf(&g_DisplayBuf[0], Display_Buf_Size);
+        }
+    }
+}
+
+
+/*******************************************************************************
+* 函数名称:    
+* 函数功能:    
+* 输入参数:    
+* 输出参数:    无
+* 返 回 值:    无
+*******************************************************************************/
+void Password_SetKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
+{
+    MenuPara_Password.ColumnIndex += 2;
+
+    //-范围[4,6,8,10]-
+    if (MenuPara_Password.ColumnIndex > 10)
+    {
+        MenuPara_Password.ColumnIndex = 4;  
+
+        if ((Password[0] == PasswordByte_0) && (Password[1] == PasswordByte_1) &&  
+            (Password[2] == PasswordByte_2) && (Password[3] == PasswordByte_3))        
+        {
+            if (pMenu->ChildMenuID != 0)
+            {
+                IsNeedChangePage = 1;
+                NeedResetMenuPara = 1;
+                Show_Page(pMenu->ChildMenuID);
+ 
+                PasswordErrorCount = 0;
+                ClearBuf(&Password[0], 4);
+                 
+                return;
+            }
+        }
+        else 
+        {
+            PasswordErrorCount++;
+
+            //-3次错误直接退出设置菜单,返回至常显-
+            if (PasswordErrorCount >= 3)
+            {
+                IsNeedChangePage = 1;
+                Show_Page(Page_Normal_ID);
+
+                PasswordErrorCount = 0;
+                ClearBuf(&Password[0], 4);
+
+                return;
+            }
+        }   
+    }
+}
+
+
+/*******************************************************************************
+* 函数名称:    
+* 函数功能:    
+* 输入参数:    
+* 输出参数:    无
+* 返 回 值:    无
+*******************************************************************************/
+void Password_UpKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
+{
+    MenuPara_Password.ColumnIndex -= 2;
+
+    //-范围[4,6,8,10]-
+    if (MenuPara_Password.ColumnIndex < 4)
+    {
+        MenuPara_Password.ColumnIndex = 10;
+    }
+}
+
+
+/*******************************************************************************
+* 函数名称:    
+* 函数功能:    
+* 输入参数:    
+* 输出参数:    无
+* 返 回 值:    无
+*******************************************************************************/
+void Password_DownKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
+{
+    MenuPara_Password.ColumnIndex += 2;
+
+    //-范围[4,6,8,10]-
+    if (MenuPara_Password.ColumnIndex > 10)
+    {
+        MenuPara_Password.ColumnIndex = 4;
+    }
+}
+
+
+/*******************************************************************************
+* 函数名称:    
+* 函数功能:    
+* 输入参数:    
+* 输出参数:    无
+* 返 回 值:    无
+*******************************************************************************/
+void Password_IncKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
 {
     int Index = 0;
 
-    unsigned int  DeadZone = 0;
+    if (MenuPara_Password.ColumnIndex == 4)
+    {
+        Index = 0;
+    }
+    else if (MenuPara_Password.ColumnIndex == 6)
+    {
+        Index = 1;
+    }
+    else if (MenuPara_Password.ColumnIndex == 8)
+    {
+        Index = 2;
+    }
+    else 
+    {
+        Index = 3;
+    }
+
+    Password[Index]++;
+    if (Password[Index] >= 10)
+    {
+        Password[Index] = 0;
+    }
+}
+
+
+/*******************************************************************************
+* 函数名称:    
+* 函数功能:    
+* 输入参数:    
+* 输出参数:    无
+* 返 回 值:    无
+*******************************************************************************/
+void Password_DecKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
+{
+    int Index = 0;
+
+    if (MenuPara_Password.ColumnIndex == 4)
+    {
+        Index = 0;
+    }
+    else if (MenuPara_Password.ColumnIndex == 6)
+    {
+        Index = 1;
+    }
+    else if (MenuPara_Password.ColumnIndex == 8)
+    {
+        Index = 2;
+    }
+    else
+    {
+        Index = 3;
+    }
+
+    if (Password[Index] <= 0)
+    {
+        Password[Index] = 10;
+    }
+
+    Password[Index]--;
+}
+
+
+/*******************************************************************************
+* 函数名称:    
+* 函数功能:    
+* 输入参数:    
+* 输出参数:    无
+* 返 回 值:    无
+*******************************************************************************/
+void AdjustOutput4_20mA_Special(const MenuStructure *pMenu, MenuPara *pMenuPara, int LineIndex)
+{
+    int Index  = 0;
+    int DisplayBufIndex = 0;
+
+    if (Device.Flag.FlagBits.IsInLocalAdjust == 1)
+    {
+        ClearBuf(&g_DisplayBuf[0], sizeof(g_DisplayBuf));
+        pMenuPara->ColumnReverseSwitch = Disable;
+
+        if (LineIndex == 1)
+        {
+            DisplayBufIndex= 0;
+            //-至停止位返回上级-
+            LongCode[Index++] = 0xD6C1;
+            LongCode[Index++] = 0xCDA3;
+            LongCode[Index++] = 0xD6B9;
+            LongCode[Index++] = 0xCEBB;
+            LongCode[Index++] = 0xB7B5;
+            LongCode[Index++] = 0xBBD8;
+            LongCode[Index++] = 0xC9CF;
+            LongCode[Index++] = 0xBCB6;
+            ShowBlock(&LongCode[0], Index, DisplayBufIndex);
+        }
+        else 
+        {
+            ShowInc_Dec(LineIndex);
+        }
+    }
+    else
+    {
+        pMenuPara->ColumnReverseSwitch = Enable;
+    }
+}
+
+
+/*******************************************************************************
+* 函数名称:    
+* 函数功能:    
+* 输入参数:    
+* 输出参数:    无
+* 返 回 值:    无
+*******************************************************************************/
+void AdjustOutput4mA_IncKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
+{
+    Valve.Adjust.Adjust1.Adjust1Bits.IncOutput4mA = 1;
+}
+
+
+/*******************************************************************************
+* 函数名称:    
+* 函数功能:    
+* 输入参数:    
+* 输出参数:    无
+* 返 回 值:    无
+*******************************************************************************/
+void AdjustOutput4mA_DecKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
+{
+    Valve.Adjust.Adjust1.Adjust1Bits.DecOutput4mA = 1;
+}
+
+
+/*******************************************************************************
+* 函数名称:    
+* 函数功能:    
+* 输入参数:    
+* 输出参数:    无
+* 返 回 值:    无
+*******************************************************************************/
+void AdjustOutput20mA_IncKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
+{
+    Valve.Adjust.Adjust1.Adjust1Bits.IncOutput20mA = 1;
+}
+
+
+/*******************************************************************************
+* 函数名称:    
+* 函数功能:    
+* 输入参数:    
+* 输出参数:    无
+* 返 回 值:    无
+*******************************************************************************/
+void AdjustOutput20mA_DecKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
+{
+    Valve.Adjust.Adjust1.Adjust1Bits.DecOutput20mA = 1;
+}
+
+
+/*******************************************************************************
+* 函数名称:    
+* 函数功能:    
+* 输入参数:    
+* 输出参数:    无
+* 返 回 值:    无
+*******************************************************************************/
+void AdjustInput4_20mA_Special(const MenuStructure *pMenu, MenuPara *pMenuPara, int LineIndex)
+{
+    unsigned int Code[4] = {0};
+
+    int DisplayBufIndex = 0;
+  
     unsigned char DummyData = 0;
     unsigned char GeValue = 0;
     unsigned char ShiValue = 0;
     unsigned char BaiValue = 0;
- 
+
+    GetSingleNumber(Valve.MiscInfo.In4_20mAADValue, &GeValue, &ShiValue, &BaiValue, &DummyData, &DummyData);
+    if (BaiValue == 0)
+    {
+        Code[0] = 0xA3A0;               //-空格-
+    }
+    else
+    {
+        Code[0] = BaiValue + 0xA3B0;
+    }
+
+    Code[1] = ShiValue + 0xA3B0;
+    Code[2] = 0xA3AE;                   //-小数点-
+    Code[3] = GeValue + 0xA3B0;
+
+    DisplayBufIndex = 48;
+    ShowBlock(&Code[0], 4, DisplayBufIndex);
+}
+
+
+/*******************************************************************************
+* 函数名称:    
+* 函数功能:    
+* 输入参数:    
+* 输出参数:    无
+* 返 回 值:    无
+*******************************************************************************/
+void AdjustInput4_20mA_SetKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
+{
+    if (pMenuPara->ColumnIndex == 3)    //-确定-
+    {
+        if (PageFunctionIndex == Page_AdjustInput20mA_ID)
+        {
+            Valve.Adjust.Adjust1.Adjust1Bits.Input20mA = 1;
+            Valve.Adjust.Adjust1.Adjust1Bits.Input4mA = 0;
+
+            CurrentAdjustType = Frame_AdjustInput20mA;
+        }
+        else
+        {
+            Valve.Adjust.Adjust1.Adjust1Bits.Input4mA = 1;
+            Valve.Adjust.Adjust1.Adjust1Bits.Input20mA = 0;
+
+            CurrentAdjustType = Frame_AdjustInput4mA;
+        }
+
+        F_WaitAdjustFrame   = 1;
+
+        SetTimer(WaitReplyTimer, WaitReply_Delay);
+            
+    }
+    else                                //-返回-
+    {
+        if (pMenu->ParentMenuID != InvalidMenuID)
+        {
+            IsNeedChangePage = 1;
+            Show_Page(pMenu->ParentMenuID);
+        }
+    }
+}
+
+
+/*******************************************************************************
+* 函数名称:    
+* 函数功能:    
+* 输入参数:    
+* 输出参数:    无
+* 返 回 值:    无
+*******************************************************************************/
+void AdjustInput4_20mA_UpKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
+{
+    pMenuPara->ColumnIndex += 6;
+    if (pMenuPara->ColumnIndex > 9)
+    {
+        pMenuPara->ColumnIndex = 3;
+    }
+}
+
+
+/*******************************************************************************
+* 函数名称:    
+* 函数功能:    
+* 输入参数:    
+* 输出参数:    无
+* 返 回 值:    无
+*******************************************************************************/
+void AdjustInput4_20mA_DownKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
+{
+    pMenuPara->ColumnIndex -= 6;
+    if (pMenuPara->ColumnIndex < 3)
+    {
+        pMenuPara->ColumnIndex = 9;
+    }
+}
+
+
+/*******************************************************************************
+* 函数名称:    
+* 函数功能:    
+* 输入参数:    
+* 输出参数:    无
+* 返 回 值:    无
+*******************************************************************************/
+void ShutCurrent_Special(const MenuStructure *pMenu, MenuPara *pMenuPara, int LineIndex)
+{
+    int Index = 0;
     int DisplayBufIndex = 0;
 
-    ClearBuf((unsigned char *)&LongCode, sizeof(LongCode));
-    
-    //-范围:1~20-
-    if (Device.Para.DeadZone <= 20)
+    if (Device.Flag.FlagBits.IsInLocalAdjust == 1)
     {
-        DeadZone = (Device.Para.DeadZone << 2) + Device.Para.DeadZone;
-    }
+        ClearBuf(&g_DisplayBuf[0], sizeof(g_DisplayBuf));
 
-    
-    if (DeadZone < 5)
+        pMenuPara->RowIndex = 1;
+        pMenuPara->ColumnIndex = 6;
+        pMenuPara->ColumnReverseUnit = 5;
+    }
+    else 
     {
-        if (Device.Para.LanguageType == Language_EN)
+        pMenuPara->RowIndex = 2;
+        pMenuPara->ColumnIndex = 4;
+        pMenuPara->ColumnReverseUnit = 8;
+    } 
+
+    if (LineIndex == 1)
+    {
+        DisplayBufIndex = 48;
+        if (Device.Para.CurrentDecimalBits == CurrentDecimalBits_One)
         {
-            //-Self Adpat-
-            LongCode[Index++] = 0x53;
-            LongCode[Index++] = 0x65;
-            LongCode[Index++] = 0x6C;
-            LongCode[Index++] = 0x66;
-            LongCode[Index++] = 0x20;
-            LongCode[Index++] = 0x41;
-            LongCode[Index++] = 0x64;
-            LongCode[Index++] = 0x61;
-            LongCode[Index++] = 0x70;
-            LongCode[Index++] = 0x74;
+            ShowNumbers(Device.Para.MaxShutCurrent, 3, 1, DisplayBufIndex, 1);
         }
         else
         {
-            //-自适应-
-            LongCode[Index++] = 0xD7D4;
-            LongCode[Index++] = 0xCACA;
-            LongCode[Index++] = 0xD3A6;
+            ShowNumbers(Device.Para.MaxShutCurrent, 3, 2, DisplayBufIndex, 1);
         }
 
-        DisplayBufIndex = 48;
+        ClearBuf((unsigned char *)&LongCode[0], sizeof(LongCode));
+        DisplayBufIndex += 32;
+        LongCode[Index++] = 0x41;         //-A-
+        ShowBlock(&LongCode[0], Index, DisplayBufIndex);
     }
     else
     {
-        GetSingleNumber(DeadZone, &GeValue, &ShiValue, &BaiValue, &DummyData, &DummyData);
-        if (BaiValue == 0)
+        if (Device.Flag.FlagBits.IsInLocalAdjust == 1)
         {
-            LongCode[Index++] = 0xA3A0;               //-空格-
+            ShowInc_Dec(LineIndex);
+        }
+    }
+}
+
+
+/*******************************************************************************
+* 函数名称:    
+* 函数功能:    
+* 输入参数:    
+* 输出参数:    无
+* 返 回 值:    无
+*******************************************************************************/
+void OpenCurrent_Special(const MenuStructure *pMenu, MenuPara *pMenuPara, int LineIndex)
+{
+    int Index = 0;
+    int DisplayBufIndex = 0;
+
+    if (Device.Flag.FlagBits.IsInLocalAdjust == 1)
+    {
+        ClearBuf(&g_DisplayBuf[0], sizeof(g_DisplayBuf));
+
+        pMenuPara->RowIndex = 1;
+        pMenuPara->ColumnIndex = 6;
+        pMenuPara->ColumnReverseUnit = 5;
+    }
+    else 
+    {
+        pMenuPara->RowIndex = 2;
+        pMenuPara->ColumnIndex = 4;
+        pMenuPara->ColumnReverseUnit = 8;
+    } 
+
+    if (LineIndex == 1)
+    {
+        DisplayBufIndex = 48;
+        if (Device.Para.CurrentDecimalBits == CurrentDecimalBits_One)
+        {
+            ShowNumbers(Device.Para.MaxOpenCurrent, 3, 1, 48, 1);
         }
         else
         {
-            LongCode[Index++] = BaiValue + 0xA3B0;
+            ShowNumbers(Device.Para.MaxOpenCurrent, 3, 2, 48, 1);
         }
-
-        LongCode[Index++] = ShiValue + 0xA3B0;
-        LongCode[Index++] = 0xA3AE;                   //-小数点-
-
-        LongCode[Index++] = GeValue + 0xA3B0;
-        LongCode[Index++] = 0xA3A5;                   //-%-
-        DisplayBufIndex = 48;
-    }
-
-    ShowBlock(&LongCode[0], Index, DisplayBufIndex);
-}
-
-
-/*******************************************************************************
-* 函数名称:    
-* 函数功能:    
-* 输入参数:    
-* 输出参数:    无
-* 返 回 值:    无
-*******************************************************************************/
-void OpenCurrent_Special(const MenuStructure *pMenu, MenuPara *pMenuPara)
-{
-    unsigned int  Current = 0;
- 
-    ClearBuf((unsigned char *)&LongCode, sizeof(LongCode));
     
-    //-范围:5-250 代表0.5-25 A
-    Current = Device.Para.MaxOpenCurrent;
-    if (Current < 5)
-    {
-        Current = 5;
-    }
-    else if (Current > 250)
-    {
-        Current = 250;
-    }
-
-    ShowNumbers(Current, 3, 1, 48);
-
-    ClearBuf((unsigned char *)&LongCode, sizeof(LongCode));
-    LongCode[0] = 0xA3C1;        //-A-
-    ShowBlock(&LongCode[0], 1, 80);
-}
-
-
-/*******************************************************************************
-* 函数名称:    
-* 函数功能:    
-* 输入参数:    
-* 输出参数:    无
-* 返 回 值:    无
-*******************************************************************************/
-void OpenCurrent_IncKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
-{
-    Device.Para.MaxOpenCurrent++;
-
-    if (Device.Para.MaxOpenCurrent > 250)
-    {
-        Device.Para.MaxOpenCurrent = 5;
-    }
-}
-
-
-/*******************************************************************************
-* 函数名称:    
-* 函数功能:    
-* 输入参数:    
-* 输出参数:    无
-* 返 回 值:    无
-*******************************************************************************/
-void OpenCurrent_DecKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
-{
-    if (Device.Para.MaxOpenCurrent <= 5)
-    {
-        Device.Para.MaxOpenCurrent = 250;  
+        ClearBuf((unsigned char *)&LongCode[0], sizeof(LongCode));
+        DisplayBufIndex += 32;
+        LongCode[Index++] = 0x41;         //-A-
+        ShowBlock(&LongCode[0], Index, DisplayBufIndex);
     }
     else
     {
-        Device.Para.MaxOpenCurrent--;
+        if (Device.Flag.FlagBits.IsInLocalAdjust == 1)
+        {
+            ShowInc_Dec(LineIndex);
+        }
     }
 }
 
@@ -3103,45 +2807,55 @@ void OpenCurrent_DecKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
 * 输出参数:    无
 * 返 回 值:    无
 *******************************************************************************/
-void ShutCurrent_Special(const MenuStructure *pMenu, MenuPara *pMenuPara)
+void MaxActionTime_Special(const MenuStructure *pMenu, MenuPara *pMenuPara, int LineIndex)
 {
-    unsigned int  Current = 0;
- 
-    ClearBuf((unsigned char *)&LongCode, sizeof(LongCode));
+    unsigned int Code[4] = {0};
+
+    int DisplayBufIndex = 0;
+
+    if (Device.Flag.FlagBits.IsInLocalAdjust == 1)
+    {
+        ClearBuf(&g_DisplayBuf[0], sizeof(g_DisplayBuf));
+
+        pMenuPara->RowIndex = 1;
+        pMenuPara->ColumnIndex = 6;
+        pMenuPara->ColumnReverseUnit = 6;
+    }
+    else 
+    {
+        pMenuPara->RowIndex = 2;
+        pMenuPara->ColumnIndex = 4;
+        pMenuPara->ColumnReverseUnit = 8;
+    } 
+
+    if (LineIndex == 1)
+    {
+        if (Device.Para.MaxActionTime < 5)
+        {
+            Code[0] = 0xB2BB;                  //-不-
+            Code[1] = 0xCFDE;                  //-限-
+            Code[2] = 0xCAB1;                  //-时-
     
-    //-范围:5-250 代表0.5-25 A
-    Current = Device.Para.MaxShutCurrent;
-    if (Current < 5)
-    {
-        Current = 5;
+            DisplayBufIndex = 48;
+            ShowBlock(&Code[0], 4, DisplayBufIndex);
+        } 
+        else
+        {
+            DisplayBufIndex = 56;
+            ShowNumbers(Device.Para.MaxActionTime, 3, 0, DisplayBufIndex, 0);
+            
+            //-S-
+            DisplayBufIndex += 24;
+            Code[0] = 0x53;
+            ShowBlock(&Code[0], 1, DisplayBufIndex);
+        }
     }
-    else if (Current > 250)
+    else 
     {
-        Current = 250;
-    }
-
-    ShowNumbers(Current, 3, 1, 48);
-
-    ClearBuf((unsigned char *)&LongCode, sizeof(LongCode));
-    LongCode[0] = 0xA3C1;        //-A-
-    ShowBlock(&LongCode[0], 1, 80);
-}
-
-
-/*******************************************************************************
-* 函数名称:    
-* 函数功能:    
-* 输入参数:    
-* 输出参数:    无
-* 返 回 值:    无
-*******************************************************************************/
-void ShutCurrent_IncKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
-{
-    Device.Para.MaxShutCurrent++;
-
-    if (Device.Para.MaxShutCurrent > 250)
-    {
-        Device.Para.MaxShutCurrent = 5;
+        if (Device.Flag.FlagBits.IsInLocalAdjust == 1)
+        {
+            ShowInc_Dec(LineIndex);
+        }
     }
 }
 
@@ -3153,15 +2867,13 @@ void ShutCurrent_IncKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
 * 输出参数:    无
 * 返 回 值:    无
 *******************************************************************************/
-void ShutCurrent_DecKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
+void MaxActionTime_SetKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
 {
-    if (Device.Para.MaxShutCurrent <= 5)
+    if (pMenu->ParentMenuID != InvalidMenuID)
     {
-        Device.Para.MaxShutCurrent = 250;  
-    }
-    else
-    {
-        Device.Para.MaxShutCurrent--;
+
+        IsNeedChangePage = 1;
+        Show_Page(pMenu->ParentMenuID);
     }
 }
 
@@ -3176,18 +2888,18 @@ void ShutCurrent_DecKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
 void MaxActionTime_IncKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
 {
     //-范围:0、[5~250]-
-    if (Device.Para.MaxActionTime <= 0)
+    if (Device.Para.MaxActionTime == 0)
     {
         Device.Para.MaxActionTime = 5;  
     }
-    else if(Device.Para.MaxActionTime >= 250)
+    else if(Device.Para.MaxActionTime == 250)
     {
         Device.Para.MaxActionTime = 0;
     }
     else
     {
         Device.Para.MaxActionTime++;
-    } 
+    }  
 }
 
 
@@ -3201,7 +2913,7 @@ void MaxActionTime_IncKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
 void MaxActionTime_DecKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
 {
     //-范围:0、[5~250]-
-    if (Device.Para.MaxActionTime <= 0)
+    if (Device.Para.MaxActionTime == 0)
     {
         Device.Para.MaxActionTime = 250;  
     }
@@ -3223,51 +2935,15 @@ void MaxActionTime_DecKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
 * 输出参数:    无
 * 返 回 值:    无
 *******************************************************************************/
-void MaxActionTime_Special(const MenuStructure *pMenu, MenuPara *pMenuPara)
+void ErrorFeedback_Special(const MenuStructure *pMenu, MenuPara *pMenuPara, int LineIndex)
 {
-    int Index = 0;
-    unsigned int  ActionTime = 0;
- 
-    ClearBuf((unsigned char *)&LongCode, sizeof(LongCode));
-    
-    //-范围:5-250 代表5-250 S
-    ActionTime = Device.Para.MaxActionTime;
-    if (ActionTime > 250)
+    if ((LineIndex == 1) && (Device.Para.ErrorFeedBack == IO_NormallyOpen))
     {
-        ActionTime = 250;
+        ShowStar(96);
     }
-
-    if (ActionTime < 5)
+    else if ((LineIndex == 2) && (Device.Para.ErrorFeedBack == IO_NormallyShut))
     {
-        if (Device.Para.LanguageType == Language_EN)
-        {
-            LongCode[Index++] = 0x55;                  //-U-
-            LongCode[Index++] = 0x6E;                  //-n-
-            LongCode[Index++] = 0x6C;                  //-l-
-            LongCode[Index++] = 0x69;                  //-i-
-            LongCode[Index++] = 0x6D;                  //-m-
-            LongCode[Index++] = 0x69;                  //-i-
-            LongCode[Index++] = 0x74;                  //-t-
-            LongCode[Index++] = 0x65;                  //-e-
-            LongCode[Index++] = 0x64;                  //-d-
-
-        }
-        else
-        {    
-            LongCode[Index++] = 0xB2BB;                  //-不-
-            LongCode[Index++] = 0xCFDE;                  //-限-
-            LongCode[Index++] = 0xCAB1;                  //-时-
-        }
-
-        ShowBlock(&LongCode[0], Index, 48);
-    }
-    else
-    {
-        ShowNumbers(ActionTime, 3, 0, 56);
-
-        ClearBuf((unsigned char *)&LongCode, sizeof(LongCode));
-        LongCode[0] = 0xA3D3;        //-S-
-        ShowBlock(&LongCode[0], 1, 80);
+        ShowStar(96);
     }
 }
 
@@ -3279,135 +2955,15 @@ void MaxActionTime_Special(const MenuStructure *pMenu, MenuPara *pMenuPara)
 * 输出参数:    无
 * 返 回 值:    无
 *******************************************************************************/
-void ShutTerminal_SetKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
+void ErrorFeedback_SetKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
 {
-    Valve.Adjust.Adjust1.Adjust1Byte = 0;
-    Valve.Adjust.Adjust0.Adjust0Bits.Zero = 1;
-    Valve.Adjust.Adjust0.Adjust0Bits.Full = 0;
-
-	F_WaitAdjustFrame	= 1;
-    SetTimer(WaitReplyTimer, WaitReply_Delay);
-    CurrentAdjustType = Frame_AdjustZero;
-}
-
-
-/*******************************************************************************
-* 函数名称:    
-* 函数功能:    
-* 输入参数:    
-* 输出参数:    无
-* 返 回 值:    无
-*******************************************************************************/
-void ShutTerminal_IncKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
-{
-    OpenTerminal_IncKey(pMenu, pMenuPara);
-}
-
-
-/*******************************************************************************
-* 函数名称:    
-* 函数功能:    
-* 输入参数:    
-* 输出参数:    无
-* 返 回 值:    无
-*******************************************************************************/
-void ShutTerminal_DecKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
-{
-    OpenTerminal_DecKey(pMenu, pMenuPara);
-}
-
-
-/*******************************************************************************
-* 函数名称:    
-* 函数功能:    
-* 输入参数:    
-* 输出参数:    无
-* 返 回 值:    无
-*******************************************************************************/
-void OpenTerminal_SetKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
-{
-    Valve.Adjust.Adjust1.Adjust1Byte = 0;
-    Valve.Adjust.Adjust0.Adjust0Bits.Zero = 0;
-    Valve.Adjust.Adjust0.Adjust0Bits.Full = 1;
-
-	F_WaitAdjustFrame	= 1;
-    SetTimer(WaitReplyTimer, WaitReply_Delay);
-    CurrentAdjustType = Frame_AdjustFull;
-}
-
-
-/*******************************************************************************
-* 函数名称:    
-* 函数功能:    
-* 输入参数:    
-* 输出参数:    无
-* 返 回 值:    无
-*******************************************************************************/
-void OpenTerminal_IncKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
-{
-  
-    Valve.Operation.Operation = Operation_NoLimitOpen;
-}
-
-
-/*******************************************************************************
-* 函数名称:    
-* 函数功能:    
-* 输入参数:    
-* 输出参数:    无
-* 返 回 值:    无
-*******************************************************************************/
-void OpenTerminal_DecKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
-{
-    Valve.Operation.Operation = Operation_NoLimitShut;
-}
-
-
-/*******************************************************************************
-* 函数名称:    
-* 函数功能:    
-* 输入参数:    
-* 输出参数:    无
-* 返 回 值:    无
-*******************************************************************************/
-void ErrorFeedBack_SetKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
-{
-    switch(pMenuPara->FocusMenuIndex)
+    if (pMenuPara->RowIndex == 1)
     {
-    case 3:
         Device.Para.ErrorFeedBack = IO_NormallyOpen;
-        break;
-    case 4:
+    }
+    else if (pMenuPara->RowIndex == 2)
+    {
         Device.Para.ErrorFeedBack = IO_NormallyShut;
-        break;
-    default:
-        break;
-    }
-    StandardMenu_SetKey(pMenu, pMenuPara);
-}
-
-
-/*******************************************************************************
-* 函数名称:    
-* 函数功能:    
-* 输入参数:    
-* 输出参数:    无
-* 返 回 值:    无
-*******************************************************************************/
-void ErrorFeedBack_Reset(MenuPara *pMenuPara)
-{
-    StandardMenu_Reset0(pMenuPara);
-
-    switch(Device.Para.ErrorFeedBack)
-    {
-    case IO_NormallyOpen:
-        pMenuPara->FocusMenuIndex = 3;
-        break;
-    case IO_NormallyShut:
-        pMenuPara->FocusMenuIndex = 4;
-        break;
-    default:
-        break;
     }
 }
 
@@ -3419,44 +2975,27 @@ void ErrorFeedBack_Reset(MenuPara *pMenuPara)
 * 输出参数:    无
 * 返 回 值:    无
 *******************************************************************************/
-void RemoteHold_SetKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
+void ESDSetting_Special(const MenuStructure *pMenu, MenuPara *pMenuPara, int LineIndex)
 {
-    switch(pMenuPara->FocusMenuIndex)
+    if ((LineIndex == 0) && (Device.Para.ESDMode == ESDMode_Disable))
     {
-    case 3:
-        Device.Para.RemoteHold = IO_NormallyOpen;
-        break;
-    case 4:
-        Device.Para.RemoteHold = IO_NormallyShut;
-        break;
-    default:
-        break;
+        ShowStar(56);
     }
-    StandardMenu_Back2Parent(pMenu, pMenuPara);
-}
-
-
-/*******************************************************************************
-* 函数名称:    
-* 函数功能:    
-* 输入参数:    
-* 输出参数:    无
-* 返 回 值:    无
-*******************************************************************************/
-void RemoteHold_Reset(MenuPara *pMenuPara)
-{
-    StandardMenu_Reset0(pMenuPara);
-
-    switch(Device.Para.RemoteHold)
+    else if ((LineIndex == 1) && (Device.Para.ESDMode == ESDMode_NoAction))
     {
-    case IO_NormallyOpen:
-        pMenuPara->FocusMenuIndex = 3;
-        break;
-    case IO_NormallyShut:
-        pMenuPara->FocusMenuIndex = 4;
-        break;
-    default:
-        break;
+        ShowStar(88);
+    }
+    else if ((LineIndex == 2) && (Device.Para.ESDMode == ESDMode_Open))
+    {
+        ShowStar(88);
+    }
+    else if ((LineIndex == 3) && (Device.Para.ESDMode == ESDMode_Shut))
+    {
+        ShowStar(88);
+    }
+    else if ((LineIndex == 4) && (Device.Para.ESDMode == ESDMode_Middle))
+    {
+        ShowStar(88);
     }
 }
 
@@ -3468,711 +3007,29 @@ void RemoteHold_Reset(MenuPara *pMenuPara)
 * 输出参数:    无
 * 返 回 值:    无
 *******************************************************************************/
-void Local_SetKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
+void ESDSetting_SetKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
 {
-    switch(pMenuPara->FocusMenuIndex)
+    if (pMenuPara->RowIndex == 0)
     {
-    case 3:
-        Device.Para.LocalMode = LocalMode_Jog;
-        break;
-    case 4:
-        Device.Para.LocalMode = LocalMode_Hold;
-        break;
-    default:
-        break;
+        Device.Para.ESDMode = ESDMode_Disable;
     }
-    StandardMenu_Back2Parent(pMenu, pMenuPara);
-}
-
-
-/*******************************************************************************
-* 函数名称:    
-* 函数功能:    
-* 输入参数:    
-* 输出参数:    无
-* 返 回 值:    无
-*******************************************************************************/
-void Local_Reset(MenuPara *pMenuPara)
-{
-    StandardMenu_Reset0(pMenuPara);
-
-    switch(Device.Para.LocalMode)
+    else if (pMenuPara->RowIndex == 1)
     {
-    case LocalMode_Jog:
-        pMenuPara->FocusMenuIndex = 3;
-        break;
-    case LocalMode_Hold:
-        pMenuPara->FocusMenuIndex = 4;
-        break;
-    default:
-        break;
+        Device.Para.ESDMode = ESDMode_NoAction;
+    }
+    else if (pMenuPara->RowIndex == 2)
+    {
+        Device.Para.ESDMode = ESDMode_Open;
+    }
+    else if (pMenuPara->RowIndex == 3)
+    {
+        Device.Para.ESDMode = ESDMode_Shut;
+    }
+    else if (pMenuPara->RowIndex == 4)
+    {
+        Device.Para.ESDMode = ESDMode_Middle;
     }
 }
-
-
-/*******************************************************************************
-* 函数名称:    
-* 函数功能:    
-* 输入参数:    
-* 输出参数:    无
-* 返 回 值:    无
-*******************************************************************************/
-void RemoteIO_SetKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
-{
-    switch(pMenuPara->FocusMenuIndex)
-    {
-    case 2:
-        Device.Para.RemoteIOMode = RemoteIOMode_Jog;
-        break;
-    case 3:
-        Device.Para.RemoteIOMode = RemoteIOMode_Hold;
-        break;
-    case 4:
-        Device.Para.RemoteIOMode = RemoteIOMode_SignalOnNoOff;
-        break;
-    case 5:
-        Device.Para.RemoteIOMode = RemoteIOMode_SignalOffNoOn;
-        break;
-    default:
-        break;
-    }
-    StandardMenu_Back2Parent(pMenu, pMenuPara);
-}
-
-
-/*******************************************************************************
-* 函数名称:    
-* 函数功能:    
-* 输入参数:    
-* 输出参数:    无
-* 返 回 值:    无
-*******************************************************************************/
-void RemoteIO_Reset(MenuPara *pMenuPara)
-{
-    StandardMenu_Reset0(pMenuPara);
-
-    switch(Device.Para.RemoteIOMode)
-    {
-    case RemoteIOMode_Jog:
-        pMenuPara->FocusMenuIndex = 2;
-        break;
-    case RemoteIOMode_Hold:
-        pMenuPara->FocusMenuIndex = 3;
-        break;
-    case RemoteIOMode_SignalOnNoOff:
-        pMenuPara->FocusMenuIndex = 4;
-        break;
-    case RemoteIOMode_SignalOffNoOn:
-        pMenuPara->FocusMenuIndex = 5;
-        break;
-    default:
-        break;
-    }    
-}
-
-
-/*******************************************************************************
-* 函数名称:    
-* 函数功能:    
-* 输入参数:    
-* 输出参数:    无
-* 返 回 值:    无
-*******************************************************************************/
-void RemoteAN_SetKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
-{
-    switch(pMenuPara->FocusMenuIndex)
-    {
-    case 2:
-        Device.Para.RemoteANMode = RemoteANMode_NoSigKeep;
-        break;
-    case 3:
-        Device.Para.RemoteANMode = RemoteANMode_NoSigShut;
-        break;
-    case 4:
-        Device.Para.RemoteANMode = RemoteANMode_NoSigMid;
-        break;
-    case 5:
-        Device.Para.RemoteANMode = RemoteANMode_NoSigOpen;
-        break;
-    default:
-        break;
-    }
-    StandardMenu_Back2Parent(pMenu, pMenuPara);
-}
-
-
-/*******************************************************************************
-* 函数名称:    
-* 函数功能:    
-* 输入参数:    
-* 输出参数:    无
-* 返 回 值:    无
-*******************************************************************************/
-void RemoteAN_Reset(MenuPara *pMenuPara)
-{
-    StandardMenu_Reset0(pMenuPara);
-
-    switch(Device.Para.RemoteANMode)
-    {
-    case RemoteANMode_NoSigKeep:
-        pMenuPara->FocusMenuIndex = 2;
-        break;
-    case RemoteANMode_NoSigShut:
-        pMenuPara->FocusMenuIndex = 3;
-        break;
-    case RemoteANMode_NoSigMid:
-        pMenuPara->FocusMenuIndex = 4;
-        break;
-    case RemoteANMode_NoSigOpen:
-        pMenuPara->FocusMenuIndex = 5;
-        break;
-    default:
-        break;
-    }
-}
-
-
-/*******************************************************************************
-* 函数名称:    
-* 函数功能:    
-* 输入参数:    
-* 输出参数:    无
-* 返 回 值:    无
-*******************************************************************************/
-void In4_20mA_Special(const MenuStructure *pMenu, MenuPara *pMenuPara)
-{
-    int Index = 0;
-    int DisplayBufIndex = 0;
-
-    DisplayBufIndex = 80;
-    ShowNumbers(Valve.MiscInfo.In4_20mA, 3, 1, DisplayBufIndex);
-    
-    ClearBuf((unsigned char *)&LongCode[0], sizeof(LongCode));
-    LongCode[Index++] = 0xA3ED;
-    LongCode[Index++] = 0xA3C1;
-    ShowBlock(&LongCode[0], Index, DisplayBufIndex + 32);
-}
-
-
-/*******************************************************************************
-* 函数名称:    
-* 函数功能:    
-* 输入参数:    
-* 输出参数:    无
-* 返 回 值:    无
-*******************************************************************************/
-void In4mA_SetKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
-{
-    Valve.Adjust.Adjust0.Adjust0Byte = 0;
-    Valve.Adjust.Adjust1.Adjust1Bits.Input4mA  = 1;
-    Valve.Adjust.Adjust1.Adjust1Bits.Input20mA = 0;
-
-	F_WaitAdjustFrame	= 1;
-    SetTimer(WaitReplyTimer, WaitReply_Delay);
-    CurrentAdjustType = Frame_AdjustInput4mA;
-}
-
-
-/*******************************************************************************
-* 函数名称:    
-* 函数功能:    
-* 输入参数:    
-* 输出参数:    无
-* 返 回 值:    无
-*******************************************************************************/
-void In20mA_SetKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
-{
-    Valve.Adjust.Adjust0.Adjust0Byte = 0;
-    Valve.Adjust.Adjust1.Adjust1Bits.Input4mA  = 0;
-    Valve.Adjust.Adjust1.Adjust1Bits.Input20mA = 1;
-
-	F_WaitAdjustFrame	= 1;
-    SetTimer(WaitReplyTimer, WaitReply_Delay);
-    CurrentAdjustType = Frame_AdjustInput20mA;
-}
-
-
-/*******************************************************************************
-* 函数名称:    
-* 函数功能:    
-* 输入参数:    
-* 输出参数:    无
-* 返 回 值:    无
-*******************************************************************************/
-void Out4mA_IncKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
-{
-    Valve.Adjust.Adjust1.Adjust1Bits.IncOutput4mA = 1;
-}
-
-
-/*******************************************************************************
-* 函数名称:    
-* 函数功能:    
-* 输入参数:    
-* 输出参数:    无
-* 返 回 值:    无
-*******************************************************************************/
-void Out4mA_DecKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
-{
-    Valve.Adjust.Adjust1.Adjust1Bits.DecOutput4mA = 1;
-}
-
-
-/*******************************************************************************
-* 函数名称:    
-* 函数功能:    
-* 输入参数:    
-* 输出参数:    无
-* 返 回 值:    无
-*******************************************************************************/
-void Out4mA_SetKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
-{
-    StandardMenu_Back2Parent(pMenu, pMenuPara);
-}
-
-
-/*******************************************************************************
-* 函数名称:    
-* 函数功能:    
-* 输入参数:    
-* 输出参数:    无
-* 返 回 值:    无
-*******************************************************************************/
-void Out20mA_IncKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
-{
-    Valve.Adjust.Adjust1.Adjust1Bits.IncOutput20mA = 1;
-}
-
-
-/*******************************************************************************
-* 函数名称:    
-* 函数功能:    
-* 输入参数:    
-* 输出参数:    无
-* 返 回 值:    无
-*******************************************************************************/
-void Out20mA_DecKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
-{
-    Valve.Adjust.Adjust1.Adjust1Bits.DecOutput20mA = 1;
-}
-
-
-/*******************************************************************************
-* 函数名称:    
-* 函数功能:    
-* 输入参数:    
-* 输出参数:    无
-* 返 回 值:    无
-*******************************************************************************/
-void Out20mA_SetKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
-{
-    StandardMenu_Back2Parent(pMenu, pMenuPara);
-}
-
-
-/*******************************************************************************
-* 函数名称:    
-* 函数功能:    
-* 输入参数:    
-* 输出参数:    无
-* 返 回 值:    无
-*******************************************************************************/
-void ChangePassword_Special(const MenuStructure *pMenu, MenuPara *pMenuPara)
-{
-    int i = 0;
-    int DisplayBufIndex = 0;
-    unsigned int Code = 0;
-
-    DisplayBufIndex = 32;
-    for (i = 0; i < PasswordNum; i++)
-    {
-        if (DigitInputCount == i)
-        {
-            Code = GBK_Triangle;
-        }
-        else
-        {
-            Code = Space;
-        }
-
-        ShowBlock(&Code, 1, DisplayBufIndex);
-        DisplayBufIndex += EN_X_SIZE;
-
-
-        if (Password[i] == InitPassword)
-        {
-            Code = 0xA3AA;
-        }
-        else
-        {
-            Code = Password[i] + 0xA3B0;
-        }
-        
-        ShowBlock(&Code, 1, DisplayBufIndex);
-        DisplayBufIndex += EN_X_SIZE;
-    }
-}
-
-
-/*******************************************************************************
-* 函数名称:    
-* 函数功能:    
-* 输入参数:    
-* 输出参数:    无
-* 返 回 值:    无
-*******************************************************************************/
-void ChangePassword_SetKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
-{
-    if (DigitInputCount < PasswordNum - 1)
-    {
-        if (Password[DigitInputCount] != InitPassword)
-        {
-            DigitInputCount++;
-        }
-    }
-    else
-    {
-        StandardMenu_Back2Parent(pMenu, pMenuPara);
-    }
-}
-
-
-/*******************************************************************************
-* 函数名称:    
-* 函数功能:    
-* 输入参数:    
-* 输出参数:    无
-* 返 回 值:    无
-*******************************************************************************/
-void ChangePassword_UpKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
-{
-    if (DigitInputCount == 0)
-    { 
-        DigitInputCount = PasswordNum - 1;
-    }
-    else
-    {
-        DigitInputCount--;
-    }
- 
-}
-
-
-/*******************************************************************************
-* 函数名称:    
-* 函数功能:    
-* 输入参数:    
-* 输出参数:    无
-* 返 回 值:    无
-*******************************************************************************/
-void ChangePassword_DownKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
-{
-    if (DigitInputCount == PasswordNum - 1)
-    { 
-        DigitInputCount = 0;
-    }
-    else
-    {
-        DigitInputCount++;
-    }
-}
-
-
-/*******************************************************************************
-* 函数名称:    
-* 函数功能:    
-* 输入参数:    
-* 输出参数:    无
-* 返 回 值:    无
-*******************************************************************************/
-void ChangePassword_IncKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
-{
-    if (Password[DigitInputCount] == InitPassword)
-    {
-        Password[DigitInputCount] = 0;
-    }
-    else if (Password[DigitInputCount] == 0x09)
-    {
-        Password[DigitInputCount] = 0;
-    }
-    else 
-    {
-        Password[DigitInputCount]++;
-    }
-}
-
-
-/*******************************************************************************
-* 函数名称:    
-* 函数功能:    
-* 输入参数:    
-* 输出参数:    无
-* 返 回 值:    无
-*******************************************************************************/
-void ChangePassword_DecKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
-{
-    if (Password[DigitInputCount] == InitPassword)
-    {
-        Password[DigitInputCount] = 0x09;
-    }
-    else if (Password[DigitInputCount] == 0)
-    {
-        Password[DigitInputCount] = 0x09;
-    }
-    else 
-    {
-        Password[DigitInputCount]--;
-    }
-}
-
-
-/*******************************************************************************
-* 函数名称:    
-* 函数功能:    
-* 输入参数:    
-* 输出参数:    无
-* 返 回 值:    无
-*******************************************************************************/
-void QueryError_SetKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
-{
-    unsigned int ErrorNum = 0;
-
-    ErrorNum = GetNumOfErrors();
-
-    if (Device.MiscInfo.ErrorIndex == ErrorNum - 1)
-    {
-        Device.MiscInfo.ErrorIndex = 0;
-    }
-    else
-    {
-        Device.MiscInfo.ErrorIndex++;
-    }
-}
-
-
-/*******************************************************************************
-* 函数名称:    
-* 函数功能:    
-* 输入参数:    
-* 输出参数:    无
-* 返 回 值:    无
-*******************************************************************************/
-void QueryError_Special(const MenuStructure *pMenu, MenuPara *pMenuPara)
-{
-    int i = 0;
-    int j = 0;
-    int Index = 0;
-    int DisplayBufIndex = 0;
-    uint16 Error = 0;
-    uint32 ErrorCount = 0;
-    const unsigned short (*pError)[2][16];
-
-    Error = Device.Error.ErrorByte;
-    Error <<= 8;
-    Error += Valve.Error.ErrorByte;
-
-    ClearBuf((unsigned char *)&LongCode[0], sizeof(LongCode));
-
-    DisplayBufIndex = 0;
-    for (i = 15; i >= 0; i--)
-    {
-        if (i >= 8)
-        {
-            pError = &SeriousErrorArray[i - 8];
-        }
-        else
-        {
-            pError = &SlightErrorArray[i];
-        }
-        if (Error & (0x01 << i))
-        {
-            ErrorCount++;
-        }
-        if (ErrorCount == Device.MiscInfo.ErrorIndex + 1)
-        {
-            for (j = 0; j < 16; j++)
-            {
-                LongCode[Index++] = pError[0][Device.Para.LanguageType][j];
-            }
-
-            break;
-        }
-    }
-    
-    if (Device.Para.LanguageType == Language_EN)
-    {
-        DisplayBufIndex = 0;
-    }
-    else
-    {
-        DisplayBufIndex = 32;
-    }
-
-    ShowBlock(&LongCode[0], Index, DisplayBufIndex);
-}
-
-
-#if Debug
-/*******************************************************************************
-* 函数名称:    
-* 函数功能:    
-* 输入参数:    
-* 输出参数:    无
-* 返 回 值:    无
-*******************************************************************************/
-void CommTest_Special(const MenuStructure *pMenu, MenuPara *pMenuPara)
-{
-#if 0
-    if (F_Sending == 1) 
-    {
-        return;
-    }
-
-#if 0
-    SendBuf[0] = 0x12;
-    SendBuf[1] = 0x34;
-    SendBuf[2] = 0x56;
-    SendBuf[3] = 0x78;
-    SendBuf[4] = 0x90;
-    SendBuf[5] = 0x00;
-    SendBuf[6] = 0x00;
-    SendBuf[7] = 0x00;
-    SendBuf[8] = 0x00;
-    SendBuf[9] = 0x00;
-#endif
-#endif
-
-#if Debug
-    int i = 0;
-    int j = 0;
-
-    unsigned int Code[2] = {0};
-
-    int DisplayBufIndex = 0;
-
-    unsigned char *pStartBuf;
-
-    if (F_StartRecv == 0)
-    {
-        return;
-    }
-    //if (F_Sending == 1)
-    {
-        //return;
-    }
-   
-    if(pMenu->RowIndex == 0)
-    {
-        pStartBuf = &SendBuf[0];
-    }
-    else if (pMenu->RowIndex == 1)
-    {
-        pStartBuf = &SendBuf[5];
-    }
-    else if (pMenu->RowIndex == 2)
-    {
-        pStartBuf = &RecvBuf[0];
-    }
-    else
-    {
-        pStartBuf = &RecvBuf[5];
-    }
-
-    DisplayBufIndex = 16;
-    for (i = 0; i < 5; i++)
-    {
-        for (j = 1; j >= 0; j--)
-        {
-            Code[j] = ((pStartBuf[i] >> (4 * j)) & 0x0F);
-            if ((Code[j] >= 10) && (Code[j] <= 0x0F))
-            {
-                Code[j] -= 10;
-                Code[j] += 0xA3C1;
-            }
-            else if (Code[j] <= 9)
-            {
-                Code[j] += 0xA3B0;         
-            }
-            else
-            {
-                continue;
-            }
-            ShowBlock(&Code[j], 1, DisplayBufIndex);
-            DisplayBufIndex += EN_X_SIZE;
-        }
-
-        DisplayBufIndex += EN_X_SIZE;    //-空一个空格-
-    }
-#endif
-}
-
-
-/*******************************************************************************
-* 函数名称:    
-* 函数功能:    
-* 输入参数:    
-* 输出参数:    无
-* 返 回 值:    无
-*******************************************************************************/
-void CommTest_SetKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
-{
-#if 0
-    if (F_StartRecv == 0)
-    {
-        F_StartRecv = 1;
-    }
-    else
-    {
-        F_StartRecv = 0;
-    }
-#endif
-    //NeedShowSYNC = !NeedShowSYNC;
-}
-
-
-/*******************************************************************************
-* 函数名称:    
-* 函数功能:    
-* 输入参数:    
-* 输出参数:    无
-* 返 回 值:    无
-*******************************************************************************/
-void CommTest_IncKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
-{
-#if 0
-    if (ShowDebugInfo >= Max_ShowDebugInfo)
-    {
-        ShowDebugInfo = 0;
-    }
-    else
-    {
-        ShowDebugInfo++;
-    }
-#endif
-}
-
-
-/*******************************************************************************
-* 函数名称:    
-* 函数功能:    
-* 输入参数:    
-* 输出参数:    无
-* 返 回 值:    无
-*******************************************************************************/
-void CommTest_DecKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
-{
-#if 0
-    if (ShowDebugInfo <= 0)
-    {
-        ShowDebugInfo = Max_ShowDebugInfo;
-    }
-    else
-    {
-        ShowDebugInfo--;
-    }
-#endif
-}
-#endif
 
 
 /*******************************************************************************
@@ -4189,15 +3046,38 @@ unsigned char KeyProc(const MenuStructure *pMenu, MenuPara *pMenuPara)
     unsigned char IsKeyPressed = 0;
     unsigned char KeyValid[VKey_Num] = {0};
 
-    if (IsInMenu() == 0)
+    if ((Device.CommMode.CommModeBits.Local == 1) || (Device.CommMode.CommModeBits.Remote == 1))
     {
         return 0; 
     }
+    if (IsInMenu() == 0)
+    {
+        if (PageFunctionIndex == Page_Normal_ID)
+        {
+            if ((KeyPressed[Key_Set] == KEY_PRESSED) && (PressedType[Key_Set] == LONG_KEY))
+            {
+                EnterMenu(1);
+            }
+            else if ((KeyPressed[Key_Shut] == KEY_PRESSED) && (PressedType[Key_Shut] == LONG_KEY))
+            {
+                EnterMenu(1);
+            }
+            else
+            {
+                return 0;
+            }
+        } 
+        else
+        {
+            return  0;
+        }
+    }
+
 
     /*-Keys of IR Remoter-*/
     for (i = 0; i < VKey_Num; i++)
     {
-        if (KeyPressed[Key_Open + i] == KEY_PRESSED)
+        if (KeyPressed[Key_Inc + i] == KEY_PRESSED)
         {
             KeyValid[i] = 1;
         }
@@ -4205,65 +3085,52 @@ unsigned char KeyProc(const MenuStructure *pMenu, MenuPara *pMenuPara)
 	if (pMenuPara->IsMultiplex == Multiplex_Adjust)
 	{
         //-这里是直接判高低电平-
-		if (KeyStateRead(Key_Open) == KEY_PRESSED)
+		if (KeyStateRead(Key_Inc) == KEY_PRESSED)
 		{
 			KeyValid[VKey_Inc] = 1;
 		}
         //-这里是直接判高低电平-
-        if (KeyStateRead(Key_Shut) == KEY_PRESSED)
+        if (KeyStateRead(Key_Dec) == KEY_PRESSED)
         {
 			KeyValid[VKey_Dec] = 1;
         }
 	}
 
 
-
     /*-Keys of the Board-*/
     if (pMenuPara->IsMultiplex == Multiplex_Digit)
     {
-        if (KeyPressed[Key_Next] == KEY_PRESSED)
+        if (KeyPressed[Key_Open] == KEY_PRESSED)
         { 
             KeyValid[VKey_Inc] = 1;
         }
-        if (KeyPressed[Key_ESC] == KEY_PRESSED)
+        if (KeyPressed[Key_Shut] == KEY_PRESSED)
         { 
             KeyValid[VKey_Dec] = 1;
-        }  
-        if (KeyPressed[Key_OK] == KEY_PRESSED)
-        {
-            KeyValid[VKey_Set] = 1;
-        }  
+        }   
     }
     else if (pMenuPara->IsMultiplex == Multiplex_Adjust)
     {
         //-这里是直接判高低电平-
-        if(KeyStateRead(Key_Next) == KEY_PRESSED)
+        if(KeyStateRead(Key_Shut) == KEY_PRESSED)
         { 
             KeyValid[VKey_Dec] = 1;
         }
         //-这里是直接判高低电平-
-        if (KeyStateRead(Key_ESC) == KEY_PRESSED)
+        if (KeyStateRead(Key_Open) == KEY_PRESSED)
         { 
             KeyValid[VKey_Inc] = 1;
-        }  
-        if (KeyPressed[Key_OK] == KEY_PRESSED)
-        {
-            KeyValid[VKey_Set] = 1;
-        }  
+        }
     }
     else
     {
-        if (KeyPressed[Key_Next] == KEY_PRESSED)
-        {
-            KeyValid[VKey_Down] = 1;
-        }
-        if (KeyPressed[Key_OK] == KEY_PRESSED)
+        if (KeyPressed[Key_Shut] == KEY_PRESSED)
         {
             KeyValid[VKey_Set] = 1;
         }
-        if (KeyPressed[Key_ESC] == KEY_PRESSED)
+        if (KeyPressed[Key_Open] == KEY_PRESSED)
         {
-            KeyValid[VKey_Back] = 1;
+            KeyValid[VKey_Down] = 1;
         }
     }
 
@@ -4271,7 +3138,7 @@ unsigned char KeyProc(const MenuStructure *pMenu, MenuPara *pMenuPara)
     if (KeyValid[VKey_Set] == 1)
     {
         IsKeyPressed = 1;
-        pMenu[pMenuPara->FocusMenuIndex].SetKeyDeal(&pMenu[pMenuPara->FocusMenuIndex], pMenuPara);
+        pMenu[pMenuPara->RowIndex].SetKeyDeal(&pMenu[pMenuPara->RowIndex], pMenuPara);
     }
     if (KeyValid[VKey_Back] == 1)
     {
@@ -4281,22 +3148,22 @@ unsigned char KeyProc(const MenuStructure *pMenu, MenuPara *pMenuPara)
     if (KeyValid[VKey_Up] == 1)
     {
         IsKeyPressed = 1;
-        pMenu[pMenuPara->FocusMenuIndex].UpKeyDeal(&pMenu[pMenuPara->FocusMenuIndex], pMenuPara);
+        pMenu[pMenuPara->RowIndex].UpKeyDeal(&pMenu[pMenuPara->RowIndex], pMenuPara);
     }
     if (KeyValid[VKey_Down] == 1)
     {
         IsKeyPressed = 1;
-        pMenu[pMenuPara->FocusMenuIndex].DownKeyDeal(&pMenu[pMenuPara->FocusMenuIndex], pMenuPara);
+        pMenu[pMenuPara->RowIndex].DownKeyDeal(&pMenu[pMenuPara->RowIndex], pMenuPara);
     }
     if (KeyValid[VKey_Inc] == 1)
     {
         IsKeyPressed = 1;
-        pMenu[pMenuPara->FocusMenuIndex].IncKeyDeal(&pMenu[pMenuPara->FocusMenuIndex], pMenuPara);
+        pMenu[pMenuPara->RowIndex].IncKeyDeal(&pMenu[pMenuPara->RowIndex], pMenuPara);
     }
     if (KeyValid[VKey_Dec] == 1)
     {
         IsKeyPressed = 1;
-        pMenu[pMenuPara->FocusMenuIndex].DecKeyDeal(&pMenu[pMenuPara->FocusMenuIndex], pMenuPara);
+        pMenu[pMenuPara->RowIndex].DecKeyDeal(&pMenu[pMenuPara->RowIndex], pMenuPara);
     }
 
     if (IsKeyPressed == 1)
@@ -4326,15 +3193,12 @@ void Page_Draw(const MenuStructure *pMenu, MenuPara      *pMenuPara)
     int i = 0;
     int j = 0;
     int TempData = 0;
-
     unsigned char NeedChangePage = 0;
 
     int MenuNameIndex   = 0;
     int DisplayBufIndex = 0;
 
     int           StartRowIndex = 0;
-    int           MenuIndex = 0;
-    int           RowIndex  = 0;            
     unsigned int  Code = 0;
     unsigned char CharacterType = 0;
 
@@ -4356,88 +3220,90 @@ void Page_Draw(const MenuStructure *pMenu, MenuPara      *pMenuPara)
         return;
     }
  
-    //-计算起始显示菜单项-
-    TempData = pMenu[pMenuPara->FocusMenuIndex].RowIndex;   
+    TempData = pMenuPara->RowIndex;   //-移出后会导致溢出-
     TempData >>= Items_Per_Page_Shif_Count;
-    StartRowIndex = TempData;         
+    StartRowIndex = TempData;         //-除以每页的最大菜单数-
     StartRowIndex <<= Items_Per_Page_Shif_Count;
-    MenuIndex = StartRowIndex;
-
     for (i = 0; i < Items_Per_Page; i++)
     {
         ClearBuf(&g_DisplayBuf[0], Display_Buf_Size);
 
         DisplayBufIndex = 0;
-        RowIndex = StartRowIndex + i;
-     
-        if (RowIndex < pMenuPara->NumOfRows)
+        MenuNameIndex = 0;
+        if (StartRowIndex + i < pMenuPara->NumOfRows)
         {
-            for (MenuIndex = 0; MenuIndex < pMenuPara->NumOfItems; MenuIndex++)
+            for (j = 0; j < 16;     )    //-把j++放到循环体中-
             {
-                if (pMenu[MenuIndex].RowIndex != RowIndex)
-                {
-                    continue;
-                }
+                ClearBuf(&FontBuf[0], sizeof(FontBuf));
 
-                MenuNameIndex = 0;
-                DisplayBufIndex = 0;
+                Code = pMenu[StartRowIndex + i].MenuName[Device.Para.LanguageType][MenuNameIndex++];
+                if (((Code >> 8) & 0xFF) >= 0xB0)    //-中文字符-
+                {
+                    CharacterType = CN_Character;
+          
+                    j += 2;             //!!!!j在循环体中累加
+                }
+                else
+                {
+                    CharacterType = EN_Character;
 
-                for (j = 0; j < 16;     )    //-把j++放到循环体中-
-                {
-                    ClearBuf(&FontBuf[0], sizeof(FontBuf));
-    
-                    Code = pMenu[MenuIndex].MenuName[Device.Para.LanguageType][MenuNameIndex++];
-                    if (((Code >> 8) & 0xFF) >= 0xB0)    //-中文字符-
-                    {
-                        CharacterType = CN_Character;
-              
-                        j += 2;             //!!!!j在循环体中累加
-                    }
-                    else
-                    {
-                        CharacterType = EN_Character;
-    
-                        j += 1;             //!!!!j在循环体中累加
-                    }
-                    GetDotData(Code, CharacterType, &FontBuf[0], &FontBufLen);
-        
-                    SwapFontBuf2DisplayBuf(FontBuf, FontBufLen, &g_DisplayBuf[0], DisplayBufIndex);
-    
-                    if (CharacterType == CN_Character)    //-中文字符-
-                    {
-                        DisplayBufIndex += CN_X_SIZE;
-                    }
-                    else
-                    {
-                        DisplayBufIndex += EN_X_SIZE;
-                    }            
+                    j += 1;             //!!!!j在循环体中累加
                 }
+                GetDotData(Code, CharacterType, &FontBuf[0], &FontBufLen);
     
-                /*-对内容进行修改的的SpecialDeal-*/
-                if (pMenu[MenuIndex].SpecialDeal != DummyFunction)
+                SwapFontBuf2DisplayBuf(FontBuf, FontBufLen, &g_DisplayBuf[0], DisplayBufIndex);
+
+                if (CharacterType == CN_Character)    //-中文字符-
                 {
-                    pMenu[MenuIndex].SpecialDeal(&pMenu[MenuIndex], pMenuPara);
-    
-                    if (IsNeedChangePage == 1) 
-                    {
-                        IsNeedChangePage = 0;
-                    
-                        return;
-                    }
+                    DisplayBufIndex += CN_X_SIZE;
                 }
-    
+                else
+                {
+                    DisplayBufIndex += EN_X_SIZE;
+                }            
+            }
+
+
+            if (pMenu[StartRowIndex + i].SpecialDeal != Dummy_Special)
+            {
+                pMenu[StartRowIndex + i].SpecialDeal(&pMenu[StartRowIndex + i], pMenuPara, StartRowIndex + i);
+
+                if (IsNeedChangePage == 1) 
+                {
+                    IsNeedChangePage = 0;
                 
-                /*-对焦点的处理-*/
-                if (MenuIndex == pMenuPara->FocusMenuIndex)
+                    return;
+                }
+            }
+
+            
+            /*-反显-*/
+            if (pMenuPara->RowReverseSwitch == Enable)
+            {
+                if (StartRowIndex + i == pMenuPara->RowIndex)
                 {
-                    ShowFocus(&pMenu[MenuIndex], pMenuPara);
+                    for (j = 0; j < Display_Buf_Size; j++)
+                    {
+                        g_DisplayBuf[j] ^= 0xFF;
+                    }
+                }
+            }
+            if (pMenuPara->ColumnReverseSwitch == Enable)
+            {
+                if (StartRowIndex + i == pMenuPara->RowIndex)
+                {
+                    TempData = pMenuPara->ColumnIndex << 3;
+                    for (j = 0; j < (pMenuPara->ColumnReverseUnit << 3); j++)
+                    {
+                        g_DisplayBuf[TempData + j] ^= 0xFF;
+                        g_DisplayBuf[TempData + j + 128] ^= 0xFF;
+                    }
                 }
             }
         }
 
-        OLED_Refresh(i);        
+        LcdRefresh(i);        
     }
-
 }
 
 
@@ -4450,7 +3316,7 @@ void Page_Draw(const MenuStructure *pMenu, MenuPara      *pMenuPara)
 *******************************************************************************/
 unsigned char IsInMenu(void)
 {
-    if (Device.Para.IsInMenu == 1)
+    if (Device.Flag.FlagBits.IsInMenu == 1)
     {
         return 1;
     }
@@ -4472,11 +3338,11 @@ void EnterMenu(unsigned char Flag)
 {
     if (Flag == 0)
     {
-        Device.Para.IsInMenu = 0;
+        Device.Flag.FlagBits.IsInMenu = 0;
     }
     else
     {
-        Device.Para.IsInMenu = 1;
+        Device.Flag.FlagBits.IsInMenu = 1;
     }
     return;
 }
@@ -4491,15 +3357,11 @@ void EnterMenu(unsigned char Flag)
 *******************************************************************************/
 void DisplayInit(void)
 {
-    int i = 0;
+
+    PageFunctionIndex = Page_Normal_ID;
 
     InsertTimer(&NoKeyTimer);
     InsertTimer(&AdjustInfoTimer);
-
-    for (i = 0; i < Page_Num; i++)
-    {
-    
-    }
 }
 
 
@@ -4513,9 +3375,6 @@ void DisplayInit(void)
 void Task_Display(void)
 {
     static unsigned char HasDone = 0;
-#if Debug
-    unsigned char HasDone1 = 0;
-#endif
 
     if (IsTimeOut(PowerOnTimer) != 1)
     {
@@ -4536,26 +3395,12 @@ void Task_Display(void)
     {
         if (IsTimeOut(NoKeyTimer) == 1)
         {
-            if ((Device.Error.ErrorByte != 0) || (Valve.Error.ErrorByte != 0))
-            {
-                Show_Page(Page_Error_ID);
-            }
-            else
-            {
-                Show_Page(Page_Normal_ID);
-            }
+            Show_Page(Page_Normal_ID);
         }
     }
     else if (IsInMenu() == 0)
     {
-        if ((Device.Error.ErrorByte != 0) || (Valve.Error.ErrorByte != 0))
-        {
-            Show_Page(Page_Error_ID);
-        }
-        else
-        {
-            Show_Page(Page_Normal_ID);
-        }
+        Show_Page(Page_Normal_ID);
     }
 
     if (IsTimeOut(AdjustInfoTimer) == 1)
@@ -4563,41 +3408,13 @@ void Task_Display(void)
         StopTimer(AdjustInfoTimer);
         if ((CurrentAdjustType == Frame_AdjustZero) || (CurrentAdjustType == Frame_AdjustFull))
         {
-            Show_Page(Page_Terminal_ID);
+            Show_Page(Page_MainMenu_ID);
         }
         else if ((CurrentAdjustType == Frame_AdjustInput4mA) || (CurrentAdjustType == Frame_AdjustInput20mA))
         {
-            Show_Page(Page_ANSignal_ID);
+            Show_Page(Page_InternalPara_ID);
         }
     }
-
-#if Debug
-    if (KeyPressed[Key_Up] == KEY_PRESSED && KeyPressed[Key_Down] == KEY_PRESSED)
-    {
-        if (HasDone1 == 1)
-        {
-            return;
-        }
-        HasDone1 = 1;
-
-        if (PageFunctionIndex != Page_CommTest_ID)
-        {
-            PrePageFunctionIndex = PageFunctionIndex;
-            Show_Page(Page_CommTest_ID);
-        }
-        else
-        {
-            Show_Page(PrePageFunctionIndex);
-        }
-
-        return;
-    }
-    else
-    {
-        HasDone1 = 0;
-    }
-#endif
-
 
     switch(PageFunctionIndex)
     {
@@ -4606,35 +3423,47 @@ void Task_Display(void)
         Page_Draw(&Menu_PowerOn[0], &MenuPara_PowerOn);   
         break;
     //--
-    case Page_Normal_ID:
+    case Page_Normal_ID: 
+        EnterMenu(0);
         SetFrameType(Normal_Frame);
-        Page_Draw(&Menu_Normal[0], &MenuPara_Normal);   
+        Page_Draw(&Menu_Normal[0], &MenuPara_Normal); 
         break;
     //--
-    case Page_Error_ID:
-        SetFrameType(Normal_Frame);
-        Page_Draw(&Menu_Error[0], &MenuPara_Error);   
+    case Page_MainMenu_ID:
+        Page_Draw(&Menu_Main[0], &MenuPara_Main);
         break;
     //--
-    case Page_Language_ID:
-        Page_Draw(&Menu_Language[0], &MenuPara_Language);   
+    case Page_AdjustZero_ID:
+        SetFrameType(Adjust_Frame);
+        Page_Draw(&Menu_AdjustZero[0], &MenuPara_AdjustZero);
         break;
     //--
-    case Page_Configuration_ID:
-        Page_Draw(&Menu_Configuration[0], &MenuPara_Configuration);   
+    case Page_AdjustZeroInfo_ID:
+        Page_Draw(&Menu_AdjustZeroInfo[0], &MenuPara_AdjustZeroInfo);
         break;
     //--
-    case Page_Password_ID:
-        Page_Draw(&Menu_Password[0], &MenuPara_Password);   
+    case Page_AdjustFull_ID: 
+        SetFrameType(Adjust_Frame);           
+        Page_Draw(&Menu_AdjustFull[0], &MenuPara_AdjustFull);
         break;
     //--
-    case Page_ParaSetting_ID:
-        Page_Draw(&Menu_ParaSetting[0], &MenuPara_ParaSetting);
+    case Page_AdjustFullInfo_ID:
+        Page_Draw(&Menu_AdjustFullInfo[0], &MenuPara_AdjustFullInfo);
         break;
     //--
-    case Page_ESDSetting_ID:
+    case Page_LocalMode_ID:;
         SetFrameType(Setting_Frame);
-        Page_Draw(&Menu_ESDSetting[0], &MenuPara_ESDSetting);
+        Page_Draw(&Menu_LocalMode[0], &MenuPara_LocalMode);
+        break;
+    //--
+    case Page_RemoteIOMode_ID:
+        SetFrameType(Setting_Frame);
+        Page_Draw(&Menu_RemoteIOMode[0], &MenuPara_RemoteIOMode);
+        break;
+    //--
+    case Page_RemoteANMode_ID:
+        SetFrameType(Setting_Frame);
+        Page_Draw(&Menu_RemoteANMode[0], &MenuPara_RemoteANMode);
         break;
     //--
     case Page_DeadZone_ID:
@@ -4642,9 +3471,41 @@ void Task_Display(void)
         Page_Draw(&Menu_DeadZone[0], &MenuPara_DeadZone);
         break;
     //--
-    case Page_OpenCurrent_ID:
+    case Page_Password_ID:
+        Page_Draw(&Menu_Password[0], &MenuPara_Password);
+        break;
+    //--
+    case Page_InternalPara_ID:
         SetFrameType(Setting_Frame);
-        Page_Draw(&Menu_OpenCurrent[0], &MenuPara_OpenCurrent);
+        Page_Draw(&Menu_InternalPara[0], &MenuPara_InternalPara);
+        break;
+    //--
+    case Page_AdjustOutput4mA_ID:
+        SetFrameType(Adjust_Frame);
+        Page_Draw(&Menu_AdjustOutput4mA[0], &MenuPara_AdjustOutput4mA);
+        break;
+    //--
+    case Page_AdjustOutput20mA_ID:
+        SetFrameType(Adjust_Frame);
+        Page_Draw(&Menu_AdjustOutput20mA[0], &MenuPara_AdjustOutput20mA);
+        break;
+    //--
+    case Page_AdjustInput4mA_ID:
+        SetFrameType(Adjust_Frame);
+        Page_Draw(&Menu_AdjustInput4mA[0], &MenuPara_AdjustInput4mA);
+        break;
+    //--
+    case Page_AdjustInput4mAInfo_ID:
+        Page_Draw(&Menu_AdjustInput4mAInfo[0], &MenuPara_AdjustInput4mAInfo);
+        break;
+    //--
+    case Page_AdjustInput20mA_ID:
+        SetFrameType(Adjust_Frame);
+        Page_Draw(&Menu_AdjustInput20mA[0], &MenuPara_AdjustInput20mA);
+        break;
+    //--
+    case Page_AdjustInput20mAInfo_ID:
+        Page_Draw(&Menu_AdjustInput20mAInfo[0], &MenuPara_AdjustInput20mAInfo);
         break;
     //--
     case Page_ShutCurrent_ID:
@@ -4652,189 +3513,28 @@ void Task_Display(void)
         Page_Draw(&Menu_ShutCurrent[0], &MenuPara_ShutCurrent);
         break;
     //--
+    case Page_OpenCurrent_ID:
+        SetFrameType(Setting_Frame);
+        Page_Draw(&Menu_OpenCurrent[0], &MenuPara_OpenCurrent);
+        break;
+    //--
     case Page_MaxActionTime_ID:
         SetFrameType(Setting_Frame);
         Page_Draw(&Menu_MaxActionTime[0], &MenuPara_MaxActionTime);
         break;
     //--
-    case Page_Terminal_ID:
-        SetFrameType(Adjust_Frame);
-        Page_Draw(&Menu_Terminal[0], &MenuPara_Terminal);
-        break;
-    //--
-    case Page_ShutTerminal_ID:
-        SetFrameType(Adjust_Frame);
-        Page_Draw(&Menu_ShutTerminal[0], &MenuPara_ShutTerminal);
-        break;
-    //--
-    case Page_AdjustZeroInfo_ID:
-        SetFrameType(Adjust_Frame);
-        Page_Draw(&Menu_AdjustZeroInfo[0], &MenuPara_AdjustZeroInfo);
-        break;
-    //--
-    case Page_OpenTerminal_ID: 
-        SetFrameType(Adjust_Frame);
-        Page_Draw(&Menu_OpenTerminal[0], &MenuPara_OpenTerminal); 
-        break;
-    //--
-    case Page_AdjustFullInfo_ID:
-        SetFrameType(Adjust_Frame);
-        Page_Draw(&Menu_AdjustFullInfo[0], &MenuPara_AdjustFullInfo);
-        break;
-    //--
-    case Page_ErrorFeedBack_ID:
-        SetFrameType(Setting_Frame); 
-        Page_Draw(&Menu_ErrorFeedBack[0], &MenuPara_ErrorFeedBack); 
-        break;
-    //--
-    case Page_RemoteHold_ID: 
+    case Page_ErrorFeedback_ID:
         SetFrameType(Setting_Frame);
-        Page_Draw(&Menu_RemoteHold[0], &MenuPara_RemoteHold); 
+        Page_Draw(&Menu_ErrorFeedback[0], &MenuPara_ErrorFeedback);
         break;
     //--
-    case Page_Control_ID: 
+    case Page_ESDSetting_ID:
         SetFrameType(Setting_Frame);
-        Page_Draw(&Menu_Control[0], &MenuPara_Control); 
+        Page_Draw(&Menu_ESDSetting[0], &MenuPara_ESDSetting);
         break;
-    //--
-    case Page_Local_ID: 
-        SetFrameType(Setting_Frame);
-        Page_Draw(&Menu_Local[0], &MenuPara_Local); 
-        break;
-    //--
-    case Page_RemoteIO_ID: 
-        SetFrameType(Setting_Frame);
-        Page_Draw(&Menu_RemoteIO[0], &MenuPara_RemoteIO); 
-        break;
-    //--
-    case Page_RemoteAN_ID: 
-        SetFrameType(Setting_Frame);
-        Page_Draw(&Menu_RemoteAN[0], &MenuPara_RemoteAN); 
-        break;
-
-    //--
-    case Page_ANSignal_ID: 
-        SetFrameType(Adjust_Frame);
-        Page_Draw(&Menu_ANSignal[0], &MenuPara_ANSignal); 
-        break;
-    //--
-    case Page_In4mA_ID: 
-        SetFrameType(Adjust_Frame);
-        Page_Draw(&Menu_In4mA[0], &MenuPara_In4mA); 
-        break;
-    //--
-    case Page_In4mAInfo_ID: 
-        SetFrameType(Adjust_Frame);
-        Page_Draw(&Menu_In4mAInfo[0], &MenuPara_In4mAInfo); 
-        break;
-    //--
-    case Page_In20mA_ID: 
-        SetFrameType(Adjust_Frame);
-        Page_Draw(&Menu_In20mA[0], &MenuPara_In20mA); 
-        break;
-    //--
-    case Page_In20mAInfo_ID: 
-        SetFrameType(Adjust_Frame);
-        Page_Draw(&Menu_In20mAInfo[0], &MenuPara_In20mAInfo); 
-        break;
-    //--
-    case Page_Out4mA_ID: 
-        SetFrameType(Adjust_Frame);
-        Page_Draw(&Menu_Out4mA[0], &MenuPara_Out4mA); 
-        break;
-    //--
-    case Page_Out20mA_ID:
-        SetFrameType(Adjust_Frame); 
-        Page_Draw(&Menu_Out20mA[0], &MenuPara_Out20mA); 
-        break;
-
-    //--
-    case Page_ChangePassword_ID: 
-        Page_Draw(&Menu_ChangePassword[0], &MenuPara_ChangePassword); 
-        break;
-
-    //--
-    case Page_ParaQuery_ID: 
-        Page_Draw(&Menu_QueryPara[0], &MenuPara_QueryPara); 
-        break;
-
-    //--
-    case Page_QueryESDSetting_ID:
-        SetFrameType(Setting_Frame);
-        Page_Draw(&Menu_QueryESDSetting[0], &MenuPara_QueryESDSetting);
-        break; 
-    //--
-    case Page_QueryDeadZone_ID:
-        SetFrameType(Setting_Frame);
-        Page_Draw(&Menu_QueryDeadZone[0], &MenuPara_QueryDeadZone);
-        break;
-    //--
-    case Page_QueryOpenCurrent_ID:
-        SetFrameType(Setting_Frame);
-        Page_Draw(&Menu_QueryOpenCurrent[0], &MenuPara_QueryOpenCurrent);
-        break;
-    //--
-    case Page_QueryShutCurrent_ID:
-        SetFrameType(Setting_Frame);
-        Page_Draw(&Menu_QueryShutCurrent[0], &MenuPara_QueryShutCurrent);
-        break;
-    //--
-    case Page_QueryMaxActionTime_ID:
-        SetFrameType(Setting_Frame);
-        Page_Draw(&Menu_QueryMaxActionTime[0], &MenuPara_QueryMaxActionTime);
-        break;
-
-    //--
-    case Page_QueryErrorFeedBack_ID: 
-        SetFrameType(Setting_Frame);
-        Page_Draw(&Menu_QueryErrorFeedBack[0], &MenuPara_QueryErrorFeedBack); 
-        break;
-    //--
-    case Page_QueryRemoteHold_ID: 
-        SetFrameType(Setting_Frame);
-        Page_Draw(&Menu_QueryRemoteHold[0], &MenuPara_QueryRemoteHold); 
-        break;
-    //--
-    case Page_QueryControl_ID: 
-        SetFrameType(Setting_Frame);
-        Page_Draw(&Menu_QueryControl[0], &MenuPara_QueryControl); 
-        break;
-    //--
-    case Page_QueryLocal_ID: 
-        SetFrameType(Setting_Frame);
-        Page_Draw(&Menu_QueryLocal[0], &MenuPara_QueryLocal); 
-        break;
-    //--
-    case Page_QueryRemoteIO_ID: 
-        SetFrameType(Setting_Frame);
-        Page_Draw(&Menu_QueryRemoteIO[0], &MenuPara_QueryRemoteIO); 
-        break;
-    //--
-    case Page_QueryRemoteAN_ID: 
-        SetFrameType(Setting_Frame);
-        Page_Draw(&Menu_QueryRemoteAN[0], &MenuPara_QueryRemoteAN); 
-        break;
-
-    //--
-    case Page_QueryPassword_ID: 
-        Page_Draw(&Menu_QueryPassword[0], &MenuPara_QueryPassword); 
-        break;
-
-    //--
-    case Page_QueryError_ID: 
-        SetFrameType(Normal_Frame);
-        Page_Draw(&Menu_QueryError[0], &MenuPara_QueryError); 
-        break;
-#if Debug
-    //--
-    case Page_CommTest_ID:
-        Page_Draw(&Menu_CommTest[0], &MenuPara_CommTest);
-        break;
-    //--
-#endif
-
     //--
     default:    //-默认常显-
+        Page_Draw(&Menu_Normal[0], &MenuPara_Normal); 
         break;
     }
 }

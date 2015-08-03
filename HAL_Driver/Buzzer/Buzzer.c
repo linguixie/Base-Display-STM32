@@ -77,7 +77,7 @@ void BuzzerInit(void)
 *******************************************************************************/
 void BuzzerOn(void)
 {
-    TIM_Cmd(BuzzerTimer, ENABLE);
+    //TIM_Cmd(BuzzerTimer, ENABLE);
 }
 
 

@@ -1,5 +1,5 @@
 /*******************************************************************************
-* Copyright (c) 2105,威鹏自动化科技有限公司
+* Copyright (c) 2015,xxx公司
  *            All rights reserved.
 * 程序名称：
 * 版 本 号：1.0
@@ -9,16 +9,18 @@
 * 修改时间: 2015-5-11
 * 修改说明: 从VPcon500D移植到MDL_IO1410D.
 * 其    他：阀门操作的抽象:
-*           1、ValveOperation是对阀门的第一层封装.关联实际的物理输入.
-*           2、ValveAction是对阀门操作的第二层封装.
-*           3、ValveStatus.Opening/Shutting是最后一层封装.
+*             1、ValveOperation是对阀门的第一层封装.关联实际的物理输入.
+*             2、ValveAction是对阀门操作的第二层封装.
+*             3、ValveStatus.Opening/Shutting是最后一层封装.
 *           阀门输入的抽象:
-*           1、DeviceInput是对输入的第一层封装.      
-*           2、ValveStatus和ValveError是最后一层封装.
-*           设备操作的抽象
-*           1、DeviceOperation是对设备操作的第一层封装.关联实际的物理输入.
-*           2、DeviceAction是对设备操作的第二层封装.
-*           注意:设备和阀门的区别.设备包含了N个阀门.      
+*             1、DeviceInput是对输入的第一层封装.      
+*             2、ValveStatus和ValveError是最后一层封装.
+*           设备操作的抽象:
+*             1、DeviceOperation是对设备操作的第一层封装.关联实际的物理输入.
+*             2、DeviceAction是对设备操作的第二层封装.
+*             注意:设备和阀门的区别.设备包含了N个阀门.
+*           设备和阀门的区别:
+*             1、有些变量属于设备,有些变量属于阀门.区分:设想存在双阀门情况.      
 ********************************************************************************/
  
  
@@ -67,7 +69,7 @@ typedef enum
     Operation_Run,
     Operation_NoLimitOpen,
     Operation_NoLimitShut,
-    Operation_None,
+    Operation_None
 }Operation;
 
 //---
@@ -78,31 +80,27 @@ typedef enum
     Action_Reset,
     Action_Stop,
     Action_Run,
+    Action_DelayOpen,
+    Action_DelayShut,
+    Action_NoLimitOpen,
+    Action_NoLimitShut,
+    Action_NoLimitStop,
     Action_None
 }Action;
 
 //---
 typedef enum
 {  
-    ControlMode_Bus,                  //-总线-
-    ControlMode_RemoteAN,             //-远程模拟-
-    ControlMode_RemoteJog,            //-远程点动-
-    ControlMode_RemoteHold,           //-远程保持-
-    ControlMode_RemoteDibit,          //-远程双位-
-    ControlMode_LocalJog,             //-现场点动-
-    ControlMode_LocalHold,            //-现场保持-
-    ControlMode_Stop,                 //-停止- 
-    ControlMode_None,
-    ControlMode_Auto,                 //-自动-
-    ControlMode_Manual,               //-手动-
-    ControlMode_AutoContinuous,       //-自动连续-
-    ControlMode_AutoTimingRun,        //-自动定时工作-
-    ControlMode_AutoTimingStop,       //-自动定时等待-
-    ControlMode_Local,                //-现场-
-    ControlMode_Remote,               //-远程-
-    ControlMode_LocalManual,          //-现场手动-
-    ControlMode_LocalTiming           //-现场定时-
-}ControlMode;
+    WorkMode_Bus,                  //-总线-
+    WorkMode_RemoteAN,             //-远程模拟-
+    WorkMode_RemoteJog,            //-远程点动-
+    WorkMode_RemoteHold,           //-远程保持-
+    WorkMode_RemoteDibit,          //-远程双位-
+    WorkMode_LocalJog,             //-现场点动-
+    WorkMode_LocalHold,            //-现场保持-
+    WorkMode_Stop,                 //-停止- 
+    WorkMode_None
+}WorkMode;
 
 //---
 typedef enum
@@ -122,12 +120,12 @@ typedef enum
 typedef enum
 {
     RemoteIOMode_Jog,                  //-点动-
+    RemoteIOMode_Hold,                 //-远程保持-
     RemoteIOMode_HoldNormallyOpen,     //-保持停常开-
     RemoteIOMode_HoldNormallyShut,     //-保持停常关-
     RemoteIOMode_SignalOnNoOff,        //-有信开无信关-
-    RemoteIOMode_SignalOffNoOn,         //-有信关无信开-
-    RemoteIOMode_Hold,                 //-远程保持-
-    RemoteIOMode_BiPos                //-远程双位-
+    RemoteIOMode_SignalOffNoOn,        //-有信关无信开-
+    RemoteIOMode_BiPos
 }RemoteIOMode;
 
 //---
@@ -163,7 +161,6 @@ typedef enum
     Status_Stop,
     Status_OpenLimit,
     Status_ShutLimit
-    
 }Status;
 
 //---
@@ -198,34 +195,76 @@ typedef enum
     Input_Invalid = 0xFF
 }Input;
 
+
 //--
 typedef enum
 {
-    ESD_Valid,
-    ESD_Invalid,
-    ESD_Disable,
-    ESD_NoAction,
-    ESD_Open,
-    ESD_Shut,
-    ESD_Middle
-}ESD_TypeDef;
+    ESDDisplay_Enable,
+    ESDDisplay_Disable
+}ESDDisplay_TypdeDef;
 
-//--
+//-ESD模式-
+typedef enum
+{
+    ESDMode_Disable,
+    ESDMode_NoAction,
+    ESDMode_Open,
+    ESDMode_Shut,
+    ESDMode_Middle
+}ESDMode_TypeDef;
+
+//-ESD状态-
+typedef enum
+{
+    ESDStatus_Valid,
+    ESDStatus_Invalid
+}ESDStatus_TypeDef;
+
+//-常开或常闭-
 typedef enum
 {
     IO_NormallyOpen,
     IO_NormallyShut
 }IO_TypeDef;
 
+//-编码器方向-
+typedef enum
+{
+    EncoderDirection_Reverse,
+    EncoderDirection_Forward
+}EncoderDirection_TypeDef;
+
+//-电流显示开关-
+typedef enum
+{
+    CurrentDisplay_Enable,
+    CurrentDisplay_Disable
+}CurrentDisplay_TypeDef;
+
+//-电流小数点位数-
+typedef enum
+{
+    CurrentDecimalBits_One,
+    CurrentDecimalBits_Two
+}CurrentDecimalBits_TypeDef;
 /*******************************************************************************
 *                                  全局变量声明
 ********************************************************************************/
 /*==================定义单个阀门相关的结构体===================================*/
+//-阀门计数器-
+typedef enum{Counter_PVHigherInStop, Counter_PVHigherInOpen, Counter_PVHigherInShut, 
+             Counter_SVHigherInStop, Counter_SVHigherInOpen, Counter_SVHigherInShut,
+             Counter_CheckRealStop,  Counter_CheckRealRun, 
+             Counter_Num
+            }Counter_TypeDef;
+
+
+
 //-阀门操作结构体:保存阀门的相关操作及操作方式.-
 typedef struct
 {
     unsigned char Operation;            //-阀门将要执行的命令:开、关-
-    unsigned int DstOpening;            //-目标(Destinantion)开度-
+    unsigned int  DstOpening;           //-目标(Destinantion)开度-
 }ValveOperation_T;
 
 
@@ -250,8 +289,8 @@ typedef struct Adjust
             unsigned Reserved1:1;     //-Reserved-
             unsigned Reserved2:1;     //-Reserved-
             unsigned Reserved3:1;     //-Reserved-
-            unsigned Reserved4:1;     //-Reserved-
-            unsigned Reserved5:1;     //-Reserved-
+            unsigned NoLimitShut:1;   //-无限位关-
+            unsigned NoLimitOpen:1;   //-无限位开-
         }Adjust0Bits;
         unsigned char Adjust0Byte;  
     }Adjust0;
@@ -281,10 +320,10 @@ typedef union
     {
         unsigned Zero:1;              //-调零-
         unsigned Full:1;              //-调满-
-        unsigned Reserved0:1;         //-Reserved-
-        unsigned Reserved1:1;         //-Reserved-
         unsigned Reserved2:1;         //-Reserved-
         unsigned Reserved3:1;         //-Reserved-
+        unsigned Reserved4:1;         //-Reserved-
+        unsigned Reserved5:1;         //-Reserved-
         unsigned Input4mA:1;          //-标定输入4mA-
         unsigned Input20mA:1;         //-标定输入20mA-
     }AdjustInfoBits;
@@ -298,11 +337,11 @@ typedef union
     struct                      
     {
         unsigned NoSignal:1;            //-丢信-
-        unsigned BusOk:1;               //-总线正常-
+        unsigned BusValid:1;            //-总线正常-
         unsigned Shutting:1;            //-正在关-
         unsigned Opening:1;             //-正在开-
-        unsigned ShutLimit:1;           //-关到位-
-        unsigned OpenLimit:1;           //-开到位-
+        unsigned ShutLimit:1;           //-关限位-
+        unsigned OpenLimit:1;           //-开限位-
         unsigned Reserved6:1;           //-预留-
         unsigned Reserved7:1;           //-预留-
     }StatusBits;
@@ -315,14 +354,14 @@ typedef union
 {
     struct
     {
-            unsigned ShutTorques:1;      //-关力矩故障-
-            unsigned OpenTorques:1;      //-开力矩故障-
-            unsigned ShutTimeout:1;      //-关向超时-
-            unsigned OpenTimeout:1;      //-开向超时-
-            unsigned ShutOverCurrent:1;  //-关向过流-
-            unsigned OpenOverCurrent:1;  //-开向过流-
-            unsigned ShutDirection:1;    //-关向错误-
-            unsigned OpenDirection:1;    //-开向错误-
+        unsigned ShutTorques:1;      //-关力矩故障-
+        unsigned OpenTorques:1;      //-开力矩故障-
+        unsigned ShutTimeout:1;      //-关向超时-
+        unsigned OpenTimeout:1;      //-开向超时-
+        unsigned ShutOverCurrent:1;  //-关向过流-
+        unsigned OpenOverCurrent:1;  //-开向过流-
+        unsigned ShutDirection:1;    //-关向错误-
+        unsigned OpenDirection:1;    //-开向错误-
     }ErrorBits;
     unsigned char ErrorByte;
 }ValveError_T;
@@ -332,23 +371,62 @@ typedef union
 typedef struct
 {           
     signed   long  ActionTimer; 
-    signed   long  OpenedTimer;
-    signed   long  ShuttedTimer;
-    unsigned int   CurOpening;            //-当前(Current)开度- 
-    unsigned int PositionADValue;         //-阀门电位器或者编码器的采样值- 
-    unsigned int In4_20mA;                //-输入4-20mA值(0~255代表0~25.5mA)-         
+    signed   long  BigLoadTimer;
+    signed   long  JustStopTimer;
+    signed   long  MotorTimer;
+
+    unsigned int   PositionValue;         //-阀门电位器或者编码器的采样值-
+    unsigned int   In4_20mAADValue;       //-输入4-20mA的采样值-
+    unsigned int   Current;               //-电流值-
+    unsigned int   PwmDuty_H;             //-输出4-20mA的占空比高字节-
+    unsigned int   PwmDuty_L;             //-输出4-20mA的占空比低字节-
+    unsigned int   CurOpening;            //-当前(Current)开度-
+    unsigned int   StopOutputOpening;     //-阀门停止输出物理信号时的开度(计算惯冲量用到)-
+    unsigned int   StopTmpOpening;        //-阀门停止时的中间开度(判断是否真正停止用到)-
+    unsigned int   RunTmpOpening;         //-阀门运行时的中间开度(判断是否真正运行用到)-
+    unsigned int   DeadZone;              //-死区(注意和Para中的不一定一致)-
+    unsigned int   OpenInertia;           //-开惯性冲量(注意和Para中的不一定一致)-
+    unsigned int   ShutInertia;           //-关惯性冲量(注意和Para中的不一定一致)-
+    
 }MiscInfo_T;
+
+
+//-阀门标志-
+typedef union
+{
+    struct
+    {
+        unsigned F_JustRun:1;           //-才开阀或才关阀-
+        unsigned F_JustStop:1;          //-才停止(和JustRun不同:3s后强制清除)-
+        unsigned F_JustOpen:1;          //-先前有开阀动作(学习惯冲量时用到)-
+        unsigned F_BigLoad:1;           //-大负载-
+        unsigned F_StartInInertia:1;    //-是否在死区外惯性内启动的标志:=1,是; 其他,不是-
+        unsigned Reserved5:1;           //-预留-
+        unsigned Reserved6:1;           //-预留-
+        unsigned Reserved7:1;           //-预留-
+    }FlagBits;
+    unsigned char FlagByte;
+}Flag_T;
+
+
+//-阀门计数器-
+typedef struct
+{           
+    unsigned char CounterArray[Counter_Num];   
+}Counter_T;
 
 
 typedef struct
 {
     ValveOperation_T      Operation;
+    ValveAction_T         Action;
     Adjust_T              Adjust;
     AdjustInfo_T          AdjustInfo;
-    ValveAction_T         Action;
     ValveStatus_T         Status;
     ValveError_T          Error;
     MiscInfo_T            MiscInfo;
+    Flag_T                Flag;
+    Counter_T             Counter;
 }Valve_T;
 
 
@@ -369,29 +447,36 @@ typedef struct
 }DeviceAction_T;
 
 
-//-整个设备的工作模式:保存整个设备的工作模式-
+//-整个设备的通讯模式:保存整个设备的通讯模式(此结构体跟WorkMode相重复,但是为了书写方便定义)-
 typedef union 
 {
     struct
     {
-        unsigned Remote:1;              //-远程-
-        unsigned Local:1;               //-现场-
+        unsigned Local:1;               //-现场状态-
+        unsigned Remote:1;              //-远程状态-
         unsigned Bus:1;                 //-总线-
-        unsigned Analog:1;              //-模拟-
+        unsigned Manual:1;              //-手轮手动-
         unsigned Reserved4:1;           //-预留-
         unsigned Reserved5:1;           //-预留-
         unsigned Reserved6:1;           //-预留-
         unsigned Reserved7:1;           //-预留-
-    }ControlModeBits;
-    unsigned char ControlMode;          //-设备当前工作模式-   
+    }CommModeBits;
+    unsigned char CommModeByte;         //-设备通讯模式-   
+}DeviceCommMode_T;
+
+
+//-整个设备的工作模式:保存整个设备的工作模式-
+typedef struct 
+{
+    unsigned char CurWorkMode;         //-设备工作模式-   
 }DeviceWorkMode_T;
+
 
 //-整个设备的状态结构体:保存整个设备的运行状态-
 typedef struct 
 {
-    unsigned char CurMode;              //-当前工作模式-
-    unsigned char Status;               //-设备当前状态- 
-    unsigned char ESDStatus;            //-ESD状态-
+    unsigned char Status;               //-设备当前状态-
+    unsigned char ESDStatus;            //-ESD有or没有-
 }DeviceStatus_T;
 
 
@@ -400,42 +485,56 @@ typedef union
 {
     struct 
     {
-        unsigned ValvePosError:1;       //-阀位异常-
-        unsigned Reserved1:1;           //-Reserved-
+        unsigned ValveException:1;      //-阀位异常-
+        unsigned EncoderNoChange:1;     //-当阀门动作时,编码器不变化-
         unsigned Reserved2:1;           //-Reserved-
         unsigned Reserved3:1;           //-Reserved-
         unsigned Reserved4:1;           //-Reserved-
         unsigned Reserved5:1;           //-Reserved-
         unsigned Reserved6:1;           //-Reserved-
-        unsigned PhaseLack:1;           //-缺相-
+        unsigned LackPhase:1;           //-Reserved-
     }ErrorBits;
     unsigned char ErrorByte;                                                                                   
 }DeviceError_T;
+
+//-整个设备的标志-
+typedef union
+{
+    struct
+    {
+        unsigned IsInMenu:1;            //-是否进入菜单设置-
+        unsigned IsInLocalAdjust:1;     //-是否旋至现场模式进行数字调整-
+        unsigned Reserved2:1;           //-预留-
+        unsigned Reserved3:1;           //-预留-
+        unsigned Reserved4:1;           //-预留-
+        unsigned Reserved5:1;           //-预留-
+        unsigned Reserved6:1;           //-预留-
+        unsigned Reserved7:1;           //-预留-
+    }FlagBits;
+    unsigned char FlagByte;
+}DeviceFlag_T;
 
 
 /*-----------------------------以下部分根据实际应用修改------------------------*/
 //-动态信息结构体:保存阀门的实时动态信息-
 typedef struct 
 {
-    unsigned short RunRemainder;
-    unsigned short RestRemainder; 
-    signed   long  WorkTimer;
-    signed   long  RestTimer; 
-    unsigned char  NeedReset;
-    unsigned int   ErrorIndex;            //-错误计数器-
-
-#if Debug
-    unsigned char DebugVar0;
-#endif
+    unsigned char Reserved;            //-预留-
+    unsigned char NeedReset;           //--
 }DeviceMiscInfo_T;
 
 
 //-阀门的输入结构体:保存阀门的输入-
 typedef struct Input
 {
-    unsigned char Open;        //-开阀-
-    unsigned char Shut;        //-关阀-
-    unsigned char Stop;        //-停止-
+    //-现场/远程-
+    unsigned char Remote;
+    unsigned char Local;
+
+    //-现场开/关/停-
+    unsigned char LocalOpen;
+    unsigned char LocalShut;
+    unsigned char LocalStop;
 }DeviceInput_T;
 
 
@@ -447,27 +546,28 @@ typedef struct
     unsigned char RemoteIOMode;         //-远程开关模式:有信开无信关、有信关无限开-
     unsigned char RemoteANMode;         //-远程模拟模式:丢信保位、丢信全开、丢信全关、丢信居中-
     unsigned char DeadZone;             //-阀门的死区(1~20,每个点代表0.5%)-
-    unsigned char MaxActionTime;        //-允许的最大动作时间(0 代表不限时)-
+    unsigned char MaxActionTime;        //-允许的最大动作时间-
     unsigned char MaxOpenCurrent;       //-允许的最大开向电流-
     unsigned char MaxShutCurrent;       //-允许的最大关向电流-
     unsigned char ESDMode;              //-ESD模式-
     unsigned char ErrorFeedBack;        //-故障反馈触点-
+ 
 
     //-以下参数不合面板进行交互-
-    unsigned char RemoteHold;           //-远程保持-
     unsigned char RemoteType;           //-阀门类型:调节型还是开关型-
-    unsigned int  FullADValue;          //-满点时阀门的电位器或编码器的值-
-    unsigned int  ZeroADValue;          //-零点时阀门的电位器或编码器的值-
+    unsigned char ESDDisplayEnable;     //-ESD(紧急状态)菜单中显示与否-
+    unsigned char CurrentDisplayEnable; //-动作时,是否显示电流-
+    unsigned char CurrentDecimalBits;   //-显示电流的位数-
+    unsigned int  FullValue;            //-满点时阀门的电位器或编码器的值-
+    unsigned int  ZeroValue;            //-零点时阀门的电位器或编码器的值-
     unsigned int  Input4mAADValue;      //-输入4mA的AD采样值-
     unsigned int  Input20mAADValue;     //-输入20mA的AD采样值-       
     unsigned int  Output4mAPwmDuty;     //-输出4mA的PWM占空比-
     unsigned int  Output20mAPwmDuty;    //-输出20mA的PWM占空比-
     unsigned int  OpenInertia;          //-开惯性冲量-
     unsigned int  ShutInertia;          //-关惯性冲量-
-    unsigned char LockEnable;           //-锁定允许-
-    unsigned int  LockTime;             //-锁定时间-
+    unsigned char EncoderDirection;     //-编码器方向-
     unsigned char LanguageType;         //-语言类型-
-    unsigned char IsInMenu;             //-是否进入设置(菜单)-
 
 }DevicePara_T;
 
@@ -477,19 +577,24 @@ typedef struct
 {
     DeviceOperation_T        Operation;
     DeviceAction_T           Action;
-    DeviceWorkMode_T         Mode;
+    DeviceCommMode_T         CommMode;
+    DeviceWorkMode_T         WorkMode;
     DeviceStatus_T           Status;
     DeviceError_T            Error;
+    DeviceFlag_T             Flag;
     DeviceMiscInfo_T         MiscInfo;       
     DevicePara_T             Para;              
     DeviceInput_T            Input; 
 }Device_T;
 
 
-
-extern Device_T Device;
-extern Valve_T  Valve;
+extern Device_T              Device;
+extern Valve_T               Valve;
 extern Valve_T *ValveArray[ValveNum];
+extern const unsigned char Counter_Max[Counter_Num];
+
+extern unsigned int ShutInertiaBuf[6];
+extern unsigned int OpenInertiaBuf[6];
 /*******************************************************************************
 *                                  全局函数声明
 ********************************************************************************/
@@ -497,15 +602,21 @@ void ValveInit(void);
 
 void DeviceSched(Device_T *pDevice);
 void DeviceProcess(Device_T *pDevice);
+void ValveTimer(Device_T *pDevice, Valve_T *pValve);
 void ValveProcess(Device_T *pDevice, Valve_T *pValve);
 
 void EnableDeviceReset(Device_T *pDevice);
 void EnableDeviceRun(Device_T *pDevice);
 void EnableDeviceStop(Device_T *pDevice);
 
+void EnableValveNoLimitOpen(Valve_T *pValve);
+void EnableValveNoLimitShut(Valve_T *pValve);
+void EnableValveNoLimitStop(Valve_T *pValve);
+
 void EnableValveOpen(Valve_T *pValve);
 void EnableValveShut(Valve_T *pValve);
 void EnableValveStop(Valve_T *pValve);
+unsigned char GetValveStatus(Valve_T *pValve);
 
 #ifdef __cplusplus
 }

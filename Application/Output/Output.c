@@ -103,22 +103,6 @@ void AssistantOutput(void)
         UI_LED_On(Led_OpenLimit);
         UI_LED_On(Led_ShutLimit); 
     }
-
-    if ((Device.Error.ErrorByte != 0) || (Valve.Error.ErrorByte != 0))
-    {
-        UI_LED_On(Led_Error);
-    }
-    else if (Device.Status.ESDStatus == ESD_Valid)
-    { 
-        if (ESDStatusChanged == 1)
-        {
-            UI_LED_FlashEver(Led_Error, 300, 300);
-        }
-    }
-    else
-    {
-        UI_LED_Off(Led_Error);
-    }
 }
 
 

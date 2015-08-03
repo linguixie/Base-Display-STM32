@@ -12,6 +12,9 @@
 *           1、KeyActivationTimeSet需在中断中被调用,调用周期越短越好.
 *           2、需根据实际情况修改表示长短键的宏.
 *           3、Task_Key需被不断调用,以实时监测按键状态.
+*           4、要特别区分处理一直按压究竟是处理1次还是表示一直有效(移植重点关注部分)
+*           5、缺点:如果按键一直按压表示1次有效.但是如果长按键的检测时间过长,则按键按
+*                   压后,必须直到长按键检测时间才会认作按键有效.
 ********************************************************************************/
 /*******************************************************************************
 *                                    头  文  件
@@ -22,6 +25,8 @@
 #include "Infrared.h"
 #include "UI.h"
 
+#include "Valve.h"
+#include "Display.h"
 /*******************************************************************************
 *                               文件内部使用宏定义
 ********************************************************************************/
@@ -81,10 +86,10 @@ unsigned char IRKeyStateRead(int KeyIndex)
 
     switch(KeyIndex)
     {
-    case Key_Open:
+    case Key_Inc:
         KeyPressed = (Code == Code_Open);
         break;
-    case Key_Shut:
+    case Key_Dec:
         KeyPressed = (Code == Code_Shut);
         break;
     case Key_Set:
@@ -134,14 +139,11 @@ unsigned char KeyStateRead(int KeyIndex)
     case Key_Local:
         KeyPressed = Key_LocalRead();
         break;
-    case Key_Next:
-        KeyPressed = Key_NextRead();
-        break;   
-    case Key_OK:
-        KeyPressed = Key_OKRead();
-        break; 
-    case Key_ESC:
-        KeyPressed = Key_ESCRead();
+    case Key_Open:
+        KeyPressed = Key_OpenRead();
+        break;    
+    case Key_Shut:
+        KeyPressed = Key_CloseRead();
         break; 
     default:
         break;
@@ -180,7 +182,7 @@ void IRKeyMsgGet(unsigned char *pKey, unsigned char *Long_Short)
     {
         if ((1 == keyScanEn[i]) && (KeyActivationTime[i] >= LONG_KEY_TIME))
         {
-            if (i == KeyOnBoard_Num)
+            if (i == Key_Set)
             {
                 j++;
             }
@@ -196,7 +198,7 @@ void IRKeyMsgGet(unsigned char *pKey, unsigned char *Long_Short)
         else if ((1 == keyScanEn[i]) && (KeyStateRead(i) == KEY_UNPRESSED) 
                  && (KeyActivationTime[i] >= SHORT_KEY_TIME))
         {
-            if (i == KeyOnBoard_Num)
+            if (i == Key_Set)
             {
                 j++;
             }
@@ -212,7 +214,7 @@ void IRKeyMsgGet(unsigned char *pKey, unsigned char *Long_Short)
         //-抖动-
         else if ((KeyStateRead(i) == KEY_UNPRESSED) && (KeyActivationTime[i] < SHORT_KEY_TIME))
         {
-            if (i == KeyOnBoard_Num)
+            if (i == Key_Set)
             {
                 j++;
             }
@@ -223,8 +225,26 @@ void IRKeyMsgGet(unsigned char *pKey, unsigned char *Long_Short)
         }
         else
         {
-            //pKey[i] = KEY_UNPRESSED;
-            //Long_Short[i] = KEY_NONE;
+            if ((i == Key_Inc) || (i == Key_Dec))
+            {
+
+                /*-只有在现场模式下和无限位开、关情形下才允许一直按压表示按键一直有效-
+                  -其他情形,一直按压只处理一次-*/
+                if ((Device.CommMode.CommModeBits.Local == 1) || (PageFunctionIndex == Page_AdjustZeroAction_ID) 
+                    || (PageFunctionIndex == Page_AdjustFullAction_ID))
+                {
+                }
+                else
+                { 
+                    pKey[i] = KEY_UNPRESSED;
+                    Long_Short[i] = KEY_NONE;
+                }
+            }
+            else
+            { 
+                pKey[i] = KEY_UNPRESSED;
+                Long_Short[i] = KEY_NONE;
+            }
         }
     }
 }
@@ -275,8 +295,20 @@ void KeyMsgGet(unsigned char *pKey, unsigned char *Long_Short)
         }
         else
         {
-            //pKey[i] = KEY_UNPRESSED;
-            //Long_Short[i] = KEY_NONE;
+            if ((i == Key_Open) || (i == Key_Shut))
+            {
+                /*-只有在现场模式下和无限位开、关情形下才允许一直按压表示按键一直有效-
+                  -其他情形,一直按压只处理一次-*/
+                if ((Device.CommMode.CommModeBits.Local == 1) || (PageFunctionIndex == Page_AdjustZeroAction_ID) 
+                    || (PageFunctionIndex == Page_AdjustFullAction_ID))
+                {
+                }
+                else
+                { 
+                    pKey[i] = KEY_UNPRESSED;
+                    Long_Short[i] = KEY_NONE;
+                }
+            }
         }
     }
 

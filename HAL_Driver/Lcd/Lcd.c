@@ -1,44 +1,42 @@
 /*******************************************************************************
-* Copyright (c) 2015,威鹏自动化科技有限公司
+* Copyright (c) 2015,xxx公司
  *            All rights reserved.
 * 程序名称：
 * 版 本 号：1.0
 * 开 发 人：谢林贵
-* 开发时间：2015-6-4
+* 开发时间：2015-3-16
 * 修 改 者:
 * 修改时间:
 * 修改说明:
-* 其    他：
+* 其    他：   1、注意区分是8080时序还是6080时序.本文件采用8080时序.
+               2、注意RD管脚必须在初始化时清零.否则白屏
 ********************************************************************************/
 /*******************************************************************************
 *                                    头  文  件
 ********************************************************************************/
-#include "stm32f0xx_conf.h"
-#include "GPIO.h"
-#include "OLed.h"
+#include "Valve.h"
+#include "Lcd.h"
 
 /*******************************************************************************
 *                               文件内部使用宏定义
 ********************************************************************************/
-#define OLED_CMD                 0
-#define OLED_DATA                1
+#define LCD_RES_H()             Lcd_RESSet()
+#define LCD_RES_L()             Lcd_RESClr()
 
-#define OLED_RES_H()             OLed_RESSet()
-#define OLED_RES_L()             OLed_RESClr()
+#define LCD_CS_H()              Lcd_CSSet()
+#define LCD_CS_L()              Lcd_CSClr()
 
-#define OLED_CS_H()              OLed_CSSet()
-#define OLED_CS_L()              OLed_CSClr()
+#define LCD_RS_H()              Lcd_DCSet()
+#define LCD_RS_L()              Lcd_DCClr()
 
-#define OLED_DC_H()              OLed_DCSet()
-#define OLED_DC_L()              OLed_DCClr()
+#define LCD_RD_H()              Lcd_RDSet()
+#define LCD_RD_L()              Lcd_RDClr()
 
-#define OLED_RD_H()              OLed_RDSet()
-#define OLED_RD_L()              OLed_RDClr()
+#define LCD_WR_H()              Lcd_WRSet()
+#define LCD_WR_L()              Lcd_WRClr()
 
-#define OLED_WR_H()              OLed_WRSet()
-#define OLED_WR_L()              OLed_WRClr()
-
-#define OLED_Write(Byte)         OLed_WriteDataBus(Byte)
+#define LCD_Write(Byte)         Lcd_WriteDataBus(Byte)
+#define LCD_Read()              Lcd_ReadDataBus()
 
 
 #define ROM_CLK_H()              ROM_CLKSet()
@@ -55,14 +53,15 @@
 /*******************************************************************************
 *                                 全局函数(变量)声明
 ********************************************************************************/
+
 //-LCD要显示的1行数据的缓冲,缓冲区不能定义成1024-
 unsigned char g_DisplayBuf[Display_Buf_Size];
 
-/*******************************************************************************
-*                                 静态函数(变量)声明
-********************************************************************************/
+//-LCD要更新的数据行索引号从上到下0~3(由于LcdDisplayBuf缓冲区大小限制,只能每次更新1行)-  
+//unsigned char g_LcdDisplayLineIndex = 0;  
 
-/*-特殊的0~9和%,和普通的西文字符区别:横向和纵向均扩大1倍-*/
+
+
 unsigned char SpecicalCharacter[11][4][16] = 
 {
   //-0-
@@ -146,56 +145,255 @@ unsigned char SpecicalCharacter[11][4][16] =
     {0x00, 0x00, 0x00, 0x06, 0x07, 0x01, 0x00, 0x00, 0x01, 0x03, 0x03, 0x02, 0x03, 0x01, 0x00, 0x00}
   } 
 };
-
-unsigned char TriangleCode[16] = 
-{
-    0x00, 0x00, 0x80, 0xC0, 0x80, 0x00, 0x00, 0x00, 0x02, 0x03, 0x03, 0x03, 0x03, 0x03, 0x02, 0x00
-};
+/*******************************************************************************
+*                                 静态函数(变量)声明
+********************************************************************************/
 
 
 /*******************************************************************************
-* 函数名称:    Delay
-* 函数功能:    延时
-* 输入参数:    延时数值
+* 函数名称:    
+* 函数功能:    
+* 输入参数:    
 * 输出参数:    无
 * 返 回 值:    无
 *******************************************************************************/
-void DelayMs(unsigned int Ms)
-{                         
-    unsigned int i;
+void DelayUs(int Count)
+{
+    int i = 0;
+    int j = 0;
 
-    while(Ms)
-    {
-        i = 6000;
-        while(i--);
-        Ms--;
-    }
+    for (i = 0; i < Count; i++)
+        for (j = 0; j < 1; j++);
 }
 
 
 /*******************************************************************************
-* 函数名称:    OLED_WR_Byte
-* 函数功能:    延时
-* 输入参数:    Byte,要写入的字节;
-               Command,0表示命令,1表示数据.
+* 函数名称:    
+* 函数功能:    
+* 输入参数:    
 * 输出参数:    无
 * 返 回 值:    无
 *******************************************************************************/
-void OLED_WR_Byte(unsigned char Byte, unsigned char Command)
-{   
-    OLED_Write(Byte);
-              
-    if(Command)
-      OLED_DC_H();
-    else 
-      OLED_DC_L();        
-    OLED_CS_L();
-    OLED_WR_L();
-    OLED_WR_H();           
-    OLED_CS_H();
-    OLED_DC_H();        
-} 
+void Delay(int Count)
+{
+    int i = 0;
+    int j = 0;
 
+    for (i = 0; i < Count; i++)
+        for (j = 0; j < 110; j++);
+}
+
+/*******************************************************************************
+* 函数名称:    
+* 函数功能:    
+* 输入参数:    
+* 输出参数:    无
+* 返 回 值:    无
+*******************************************************************************/
+void LcdGPIOInit(void)
+{
+}
+
+
+/*******************************************************************************
+* 函数名称:    
+* 函数功能:    
+* 输入参数:    
+* 输出参数:    无
+* 返 回 值:    无
+*******************************************************************************/
+void SetDataBusOutput(void)
+{
+    GPIO_InitTypeDef    GPIO_InitStructure;
+
+    GPIO_InitStructure.GPIO_Pin   = Lcd_D0_Pin | Lcd_D1_Pin | Lcd_D2_Pin | Lcd_D3_Pin | Lcd_D4_Pin | Lcd_D5_Pin | Lcd_D6_Pin | Lcd_D7_Pin;
+    GPIO_InitStructure.GPIO_Mode  = GPIO_Mode_OUT;
+    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+    GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
+    GPIO_InitStructure.GPIO_PuPd  = GPIO_PuPd_UP;
+    GPIO_Init(Lcd_Data_Port, &GPIO_InitStructure); 
+}
+
+
+/*******************************************************************************
+* 函数名称:    
+* 函数功能:    
+* 输入参数:    
+* 输出参数:    无
+* 返 回 值:    无
+*******************************************************************************/
+void SetDataBusInput(void)
+{
+    GPIO_InitTypeDef    GPIO_InitStructure;
+
+    GPIO_InitStructure.GPIO_Pin   = Lcd_D0_Pin | Lcd_D1_Pin | Lcd_D2_Pin | Lcd_D3_Pin | Lcd_D4_Pin | Lcd_D5_Pin | Lcd_D6_Pin | Lcd_D7_Pin;
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN;
+    GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_DOWN ; 
+    GPIO_Init(Lcd_Data_Port, &GPIO_InitStructure);
+}
+
+
+/*******************************************************************************
+* 函数名称:    
+* 函数功能:    
+* 输入参数:    
+* 输出参数:    无
+* 返 回 值:    无
+*******************************************************************************/
+void TransferCommand(int Command)
+{
+    LCD_RS_L();
+    LCD_CS_L();
+    LCD_WR_L();
+    LCD_Write(Command);
+    DelayUs(3);
+    LCD_WR_H();
+    LCD_CS_H();
+}
+
+
+/*******************************************************************************
+* 函数名称:    
+* 函数功能:    
+* 输入参数:    
+* 输出参数:    无
+* 返 回 值:    无
+*******************************************************************************/
+void TransferData(int Data)
+{
+    LCD_RS_H();
+    LCD_CS_L();
+    LCD_WR_L();
+    LCD_Write(Data);
+    DelayUs(3);
+    LCD_WR_H();
+    LCD_CS_H();
+}
+
+
+/*******************************************************************************
+* 函数名称:    
+* 函数功能:    
+* 输入参数:    
+* 输出参数:    无
+* 返 回 值:    无
+*******************************************************************************/
+unsigned char ReadStatus(void)
+{
+    unsigned char Byte = 0;
+    
+    SetDataBusInput();
+    LCD_RS_L();
+    LCD_CS_L();
+    LCD_RD_L();
+    DelayUs(3);          //-必须加上延时,可能是输出后不能立马读输入-
+    Byte = LCD_Read();
+    DelayUs(3);
+    LCD_RD_H();
+    LCD_CS_H();
+
+    SetDataBusOutput();
+
+    return Byte;
+}
+
+
+/*******************************************************************************
+* 函数名称:    
+* 函数功能:    
+* 输入参数:    
+* 输出参数:    无
+* 返 回 值:    无
+*******************************************************************************/
+void LcdReset(void)
+{
+    unsigned char Byte = 0;
+
+    Byte = ReadStatus();
+    if (((Byte & 0x10) != 0) || ((Byte & 0x20) != 0))
+    {
+        LCD_RES_L();              /*低电平复位*/
+        Delay(200);
+        LCD_RES_H();              /*复位完毕*/
+        Delay(50);
+        TransferCommand(0xe2);   /*软复位*/
+        Delay(5);
+        TransferCommand(0x2C);   /*升压步聚1*/
+        Delay(5);
+        TransferCommand(0x2E);   /*升压步聚2*/
+        Delay(5);
+        TransferCommand(0x2F);   /*升压步聚3*/
+        Delay(5);
+    }
+
+    TransferCommand(0x23);   /*粗调对比度，可设置范围0x20～0x27*/
+    TransferCommand(0x81);   /*微调对比度*/
+    TransferCommand(0x30);   /*0x28,微调对比度的值，可设置范围0x00～0x3f*/
+    TransferCommand(0xA2);   /*1/9偏压比（bias）*/
+    TransferCommand(0xc8);   /*行扫描顺序：从上到下*/
+    TransferCommand(0xa0);   /*列扫描顺序：从左到右*/
+    TransferCommand(0x40);   /*起始行：第一行开始*/    
+    TransferCommand(0xaf);   /*开显示*/
+
+}
+
+
+/*******************************************************************************
+* 函数名称:    
+* 函数功能:    
+* 输入参数:    
+* 输出参数:    无
+* 返 回 值:    无
+*******************************************************************************/
+void LcdInit(void)
+{
+    int i = 0;
+
+    LCD_RES_L();              /*低电平复位*/
+    Delay(200);
+    LCD_RES_H();              /*复位完毕*/
+    Delay(50);
+
+    TransferCommand(0xe2);   /*软复位*/
+    Delay(5);
+    TransferCommand(0x2c);   /*升压步聚1*/
+    Delay(5);
+    TransferCommand(0x2e);   /*升压步聚2*/
+    Delay(5);
+    TransferCommand(0x2f);   /*升压步聚3*/
+    Delay(5);
+
+    LcdReset();
+
+    for (i = 0; i < Display_Buf_Size; i++)
+    {
+        g_DisplayBuf[i] = 0x00;
+    }
+    ClearScreen();
+}
+
+
+/*******************************************************************************
+* 函数名称:    
+* 函数功能:    
+* 输入参数:    
+* 输出参数:    无
+* 返 回 值:    无
+*******************************************************************************/
+void LcdSetAddress(unsigned char Page, unsigned char Column)
+{
+#if 0
+    //Column -= 1;                    //我们平常所说的第1列，在LCD驱动IC里是第0列。
+    //Page -= 1;
+
+    /*-设置页地址。每页是8行。一个画面的64行被分成8个页。我们平常
+     *-所说的第1页，在LCD驱动IC里是第0页，所以在这里减去1-*/
+#endif
+    TransferCommand(0xB0 + Page);   
+    TransferCommand(((Column >> 4) & 0x0f) + 0x10);         //设置列地址的高4位
+    TransferCommand(Column & 0x0f);                         //设置列地址的低4位
+}
+ 
 
 
 /*******************************************************************************
@@ -215,17 +413,6 @@ unsigned int Rom16_16GetAddress(unsigned char Code_H, unsigned char Code_L)
     {
         Address = (Code_H - 0xB0) * 94;
         Address += (Code_L - 0xA1) + 846;
-        Address <<= 5;
-
-        return Address;
-        //-溢出了-
-        //return ((Code_H - 0xB0) * 94 + (Code_L - 0xA1) + 846) * 32;
-    }
-    
-    if (Code_H >= 0xA1 && Code_H <= 0xA3 && Code_L >= (unsigned char)0xA1)
-    {
-        Address = (Code_H - 0xA1) * 94;
-        Address += (Code_L - 0xA1);
         Address <<= 5;
 
         return Address;
@@ -343,7 +530,7 @@ void RomGetBytes(unsigned int Address, unsigned char *pBuff, unsigned char DataL
     unsigned char i;
 
     ROM_CS_L();
-    OLED_CS_H();
+    LCD_CS_H();
     ROM_CLK_L();
 
     RomSendData(0x03);
@@ -389,19 +576,6 @@ void GetDotData(unsigned int Code, unsigned char CharacterType, unsigned char *F
             FontBuf[i] = 0x00;
         }
 
-        *FontBufLen = 0;
-
-        return;
-    }
-
-    //-三角符号特殊处理-
-    if (Code == GBK_Triangle)
-    {
-        for (i = 0; i < EN_Character_Size; i++)
-        {
-            FontBuf[i] = TriangleCode[i];
-        }
-
         *FontBufLen = EN_Character_Size;
 
         return;
@@ -424,28 +598,27 @@ void GetDotData(unsigned int Code, unsigned char CharacterType, unsigned char *F
 }
 
 
+
 /*******************************************************************************
-* 函数名称:    SwapFontBuf2DisplayBuf
-* 函数功能:    将点阵数据转化为OLED数据,存放在显示缓冲中
-* 输入参数:    FontBuf,  点阵数据缓冲
-*              FontBufLen,  点阵数据长度
-*              DisplayBufStartIndex,  OLED显示缓冲索引
-* 输出参数:    DisplayBuf,  OLED显示缓冲
+* 函数名称:    
+* 函数功能:    
+* 输入参数:    
+* 输出参数:    无
 * 返 回 值:    无
 *******************************************************************************/
 void SwapFontBuf2DisplayBuf(unsigned char *FontBuf, unsigned FontBufLen, unsigned char *DisplayBuf, int DisplayBufStartIndex)
 {
     int i = 0;
     int Index = 0;
-    int BytePerLine = 0;
+    int ColumnPerCharacter = 0;
 
-    if (FontBufLen == 32)         //-中文字符每行16个字节-
+    if (FontBufLen == 32)         //-每个中文字符占16列-
     {
-        BytePerLine = 16;
+        ColumnPerCharacter = 16;
     }
-    else if (FontBufLen == 16)    //-英文字符每行8个字节-
+    else if (FontBufLen == 16)    //-每个英文字符占8列-
     {
-        BytePerLine = 8;
+        ColumnPerCharacter = 8;
     }
     else
     {
@@ -458,13 +631,13 @@ void SwapFontBuf2DisplayBuf(unsigned char *FontBuf, unsigned FontBufLen, unsigne
     }
 
     Index = DisplayBufStartIndex;
-    for (i = 0; i < BytePerLine; i++)
+    for (i = 0; i < ColumnPerCharacter; i++)
     {
         DisplayBuf[Index++] = FontBuf[i];
     }
 
     Index = DisplayBufStartIndex + 128;
-    for (i = BytePerLine; i < BytePerLine + BytePerLine; i++)
+    for (i = ColumnPerCharacter; i < ColumnPerCharacter + ColumnPerCharacter; i++)
     {
         DisplayBuf[Index++] = FontBuf[i];
     }
@@ -472,176 +645,25 @@ void SwapFontBuf2DisplayBuf(unsigned char *FontBuf, unsigned FontBufLen, unsigne
 
 
 /*******************************************************************************
-* 函数名称:    OLED_SetPos
-* 函数功能:    设置显示的坐标位置
-* 输入参数:    x,横坐标位置;y,纵坐标位置.
+* 函数名称:    ClearScreen
+* 函数功能:    
+* 输入参数:    
 * 输出参数:    无
 * 返 回 值:    无
 *******************************************************************************/
-void OLED_SetPos(unsigned char x, unsigned char y) 
-{ 
-	OLED_WR_Byte(0xb0 + y, OLED_CMD);
-	OLED_WR_Byte(((x & 0xf0) >> 4) | 0x10, OLED_CMD);
-	OLED_WR_Byte((x & 0x0f) | 0x01, OLED_CMD); 
-}  
-
-
-/*******************************************************************************
-* 函数名称:    OLED_DisplayOn
-* 函数功能:    开启OLED
-* 输入参数:    无
-* 输出参数:    无
-* 返 回 值:    无
-*******************************************************************************/  
-void OLED_DisplayOn(void)
+void ClearScreen(void)
 {
-	OLED_WR_Byte(0X8D, OLED_CMD);  //SET DCDC命令
-	OLED_WR_Byte(0X14, OLED_CMD);  //DCDC ON
-	OLED_WR_Byte(0XAF, OLED_CMD);  //DISPLAY ON
-}
+    unsigned char i = 0;
+    unsigned char j = 0;
 
-
-/*******************************************************************************
-* 函数名称:    OLED_DisplayOff
-* 函数功能:    关闭OLED
-* 输入参数:    无
-* 输出参数:    无
-* 返 回 值:    无
-*******************************************************************************/   
-void OLED_DisplayOff(void)
-{
-	OLED_WR_Byte(0X8D, OLED_CMD);  //SET DCDC命令
-	OLED_WR_Byte(0X10, OLED_CMD);  //DCDC OFF
-	OLED_WR_Byte(0XAE, OLED_CMD);  //DISPLAY OFF
-}	
-
-
-/*******************************************************************************
-* 函数名称:    OLED_Clear
-* 函数功能:    清屏
-* 输入参数:    无
-* 输出参数:    无
-* 返 回 值:    无
-* 其    他:    清完屏,整个屏幕是黑色的!和没点亮一样!!!
-*******************************************************************************/ 	   			 	  
-void OLED_Clear(void)  
-{  
-	int i = 0;
-    int j = 0;
-		    
-	for(i = 0; i < 8; i++)  
-	{  
-		OLED_WR_Byte (0xb0+i, OLED_CMD);    //设置页地址（0~7）
-		OLED_WR_Byte (0x02, OLED_CMD);      //设置显示位置—列低地址
-		OLED_WR_Byte (0x10, OLED_CMD);      //设置显示位置—列高地址 
-  
-		for(j = 0; j < 128; j++)
+    for(i = 0;i < 8; i++)
+    {
+        LcdSetAddress(i, 0);
+        for(j = 0;j < 128; j++)
         {
-            OLED_WR_Byte(0x00, OLED_DATA); 
+            TransferData(0x00);
         }
-	} 
-}
-
-
-/*******************************************************************************
-* 函数名称:    
-* 函数功能:    
-* 输入参数:    
-* 输出参数:    无
-* 返 回 值:    无
-*******************************************************************************/
-void OLED_Reset(void)
-{
-	OLED_WR_Byte(0xA8,OLED_CMD); //Set Multiplex Ratio 
-	OLED_WR_Byte(0x3F,OLED_CMD); // 
-	
-	OLED_WR_Byte(0xD3,OLED_CMD); //Set Display Offset
-	OLED_WR_Byte(0X00,OLED_CMD); //
-	
-	OLED_WR_Byte(0x40,OLED_CMD); //Set Display Start Line 
-	
-	OLED_WR_Byte(0XA1,OLED_CMD); //Set Segment Re-Map
-	OLED_WR_Byte(0xAF,OLED_CMD); //Set Display On 
-}
-
-
-/*******************************************************************************
-* 函数名称:    OLedInit
-* 函数功能:    初始化OLED
-* 输入参数:    
-* 输出参数:    无
-* 返 回 值:    无
-*******************************************************************************/
-void OLedInit(void)
-{
-    OLED_RES_H();
-	DelayMs(100);
-	OLED_RES_L();
-	DelayMs(100);
-	OLED_RES_H();
-
-	OLED_WR_Byte(0xFD,OLED_CMD); //Command Lock
-	OLED_WR_Byte(0x12,OLED_CMD); //		
-  
-	OLED_WR_Byte(0xAE,OLED_CMD); //Set Display Off 
-	
-	OLED_WR_Byte(0xD5,OLED_CMD); //Set Display Clock Divide Ratio/Oscillator Frequency
-	OLED_WR_Byte(0xA0,OLED_CMD); //
-	
-	OLED_WR_Byte(0xA8,OLED_CMD); //Set Multiplex_Digit Ratio 
-	OLED_WR_Byte(0x3F,OLED_CMD); // 
-	
-	OLED_WR_Byte(0xD3,OLED_CMD); //Set Display Offset
-	OLED_WR_Byte(0X00,OLED_CMD); //
-	
-	OLED_WR_Byte(0x40,OLED_CMD); //Set Display Start Line 
-	
-	OLED_WR_Byte(0XA1,OLED_CMD); //Set Segment Re-Map
-
-	OLED_WR_Byte(0xC8,OLED_CMD); //Set COM Output Scan Direction 
-	
-	OLED_WR_Byte(0xDA,OLED_CMD); //Set COM Pins Hardware Configuration
-	OLED_WR_Byte(0x12,OLED_CMD); //
-	
-	OLED_WR_Byte(0x81,OLED_CMD); //Set Current Control 
-	OLED_WR_Byte(0xDF,OLED_CMD); //
-	
-	OLED_WR_Byte(0xD9,OLED_CMD); //Set Pre-Charge Period  
-	OLED_WR_Byte(0x82,OLED_CMD); //
-	
-	OLED_WR_Byte(0xDB,OLED_CMD); //Set VCOMH Deselect Level 	 
-	OLED_WR_Byte(0x34,OLED_CMD); //
-	
-	OLED_WR_Byte(0xA4,OLED_CMD); //Set Entire Display On/Off
-	
-	OLED_WR_Byte(0xA6,OLED_CMD); //Set Normal/Inverse Display 
-
-	
-	OLED_WR_Byte(0xAF,OLED_CMD); //Set Display On 
-	OLED_Clear();
-	OLED_SetPos(0,0);  
-}
-
-
-/*******************************************************************************
-* 函数名称:    
-* 函数功能:    
-* 输入参数:    
-* 输出参数:    无
-* 返 回 值:    无
-*******************************************************************************/
-void OLED_SetAddress(unsigned char Page, unsigned char Column)
-{
-#if 0
-    //Column -= 1;                    //我们平常所说的第1列，在LCD驱动IC里是第0列。
-    //Page -= 1;
-
-    /*-设置页地址。每页是8行。一个画面的64行被分成8个页。我们平常
-     *-所说的第1页，在LCD驱动IC里是第0页，所以在这里减去1-*/
-#endif
-    OLED_WR_Byte(0xB0 + Page, OLED_CMD);                           //-设置页地址-
-    OLED_WR_Byte(((Column >> 4) & 0x0f) + 0x10, OLED_CMD);         //-设置列地址的高4位-
-    OLED_WR_Byte((Column & 0x0f) + 2, OLED_CMD);                   //-设置列地址的低4位-
+    }
 }
 
 
@@ -652,57 +674,21 @@ void OLED_SetAddress(unsigned char Page, unsigned char Column)
 * 输出参数:    无
 * 返 回 值:    无
 *******************************************************************************/
-void OLED_Refresh(int CharacterLineIndex)
+void LcdRefresh(int CharacterLineIndex)
 {
     int i,j;
 
     //-每次刷新2行(1个字符行)-
     for(j = 0; j < 2; j++)
     {
-        OLED_SetAddress(CharacterLineIndex * 2 + j, 0);
+        LcdSetAddress(CharacterLineIndex * 2 + j, 0);
 
         for(i = 0; i < 128; i++)
         {
-            OLED_WR_Byte(g_DisplayBuf[128 * j + i], OLED_DATA);
+            TransferData(g_DisplayBuf[128 * j + i]);
         }
     }
 }
- 
-
-/*******************************************************************************
-* 函数名称:    
-* 函数功能:    
-* 输入参数:    
-* 输出参数:    无
-* 返 回 值:    无
-*******************************************************************************/
-void ShowTest(int X_Offset)
-{
-    unsigned char FontBuf[32] = {0};
-    unsigned char FontBufLen = 0;
-  
-    unsigned int Code = 0;
-
-    //-补上"*"- 
-    Code = 0x2A;
-    GetDotData(Code, EN_Character, &FontBuf[0], &FontBufLen);
-    SwapFontBuf2DisplayBuf(&FontBuf[0], FontBufLen, &g_DisplayBuf[0], X_Offset);
-    OLED_Refresh(0);
-}
-
-
-/*******************************************************************************
-* 函数名称:    OLED_Test
-* 函数功能:    测试函数
-* 输入参数:    
-* 输出参数:    无
-* 返 回 值:    无
-*******************************************************************************/
-void OLED_Test(int CharacterLineIndex, int Code)
-{
-    ShowTest(0);
-}
-
 
 /*************************************END OF FILE*******************************/
 

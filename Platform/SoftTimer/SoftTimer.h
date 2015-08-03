@@ -29,10 +29,10 @@ extern "C" {
 *                                  宏  定  义
 ********************************************************************************/
 //-根据实际情况进行修改(单位:ms)-
-#define Delay_Unit                SoftTimerUnit
-#define Delay_2MiliSecond_Factor  (1)        
-#define Delay_Second_Factor       (Division(1000, Delay_Unit))
-#define Delay_Minute_Factor       (Division(60000, Delay_Unit))     
+#define Delay_Unit                2            //-延时的单位,ms-
+#define Delay_MiliSecond_Factor   Delay_Unit   //-延时单位为毫秒是,需要!!除以的因子-
+#define Delay_Second_Factor       500          //-延时单位为秒时,需要乘以的因子-
+#define Delay_Minute_Factor       30000       
 
 
 #define IsTimeOut(Counter)        (Counter < 0)

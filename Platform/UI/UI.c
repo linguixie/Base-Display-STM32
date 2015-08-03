@@ -45,7 +45,6 @@ const struct LED_OnOff LED_onoff[LED_Number] =
 {
     {LedOn, LedOff},
     {LedOn, LedOff},
-    {LedOn, LedOff}
 };
 #endif    /*-Led_Module_Enable == 1-*/
 

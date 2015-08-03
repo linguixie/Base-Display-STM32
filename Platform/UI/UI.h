@@ -47,7 +47,6 @@ extern "C" {
 #define BUZZER_OFF       0x00    //停止
 
 /*-根据实际情况进行修改-*/
-#define Led_Error                (&LED[LED_ERROR])
 #define Led_ShutLimit            (&LED[LED_SHUTLIMIT])
 #define Led_OpenLimit            (&LED[LED_OPENLIMIT])
  

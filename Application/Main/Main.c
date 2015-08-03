@@ -13,7 +13,7 @@
 /*******************************************************************************
 *                                    头  文  件
 ********************************************************************************/
-#include "OLed.h"
+#include "Lcd.h"
 #include "GPIO.h"
 #include "Key.h"
 #include "SysTick.h"
@@ -28,11 +28,6 @@
 #include "EEPROM.h"
 #include "Watchdog.h"
 #include "Communication.h"
-
-#if Debug
-#include "OLed.h" 
-#endif
-
 /*******************************************************************************
 *                               文件内部使用宏定义
 ********************************************************************************/
@@ -79,7 +74,7 @@ static void HardwareInit(void)
     KeyInit();
     UI_Init();
     InfraredInit();
-    OLedInit();
+    LcdInit();
     //WatchdogInit();
 }
 
@@ -150,13 +145,13 @@ int main (void)
     while(1)
     {
         //Feed_Watchdog();          //-喂狗-
-        OLED_Reset();
+        LcdReset();
         Task_Input();             //-输入-
         Task_Communication();     //-通讯-
         Task_Key();               //-按键-
         Task_Display();           //-显示-
         Task_Infrared();          //-红外- 
-        Task_Output();   
+        Task_Output(); 
     }
 
     return 0;
