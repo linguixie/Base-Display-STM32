@@ -272,6 +272,34 @@ unsigned char GetFrameType(void)
 * 输出参数:    无
 * 返 回 值:    无
 *******************************************************************************/
+void ModeSwitch(void)
+{
+
+
+    static unsigned char PreCommMode = 0;
+    unsigned char ControlModeChanged = 0;
+
+    if (PreCommMode != Device.CurCommMode.CommModeByte)
+    {
+        PreCommMode = Device.CurCommMode.CommModeByte;
+        ControlModeChanged = 1;
+    } 
+
+    if (ControlModeChanged == 1)
+    {
+        Device.Error.ErrorByte      = 0x00;
+        Valve.Error.ErrorByte       = 0x00;
+    }
+}
+
+
+/*******************************************************************************
+* 函数名称:    
+* 函数功能:    
+* 输入参数:    
+* 输出参数:    无
+* 返 回 值:    无
+*******************************************************************************/
 void MakeSyncFrame(void)
 {
     unsigned char CheckSum = 0x00;
@@ -324,11 +352,11 @@ void MakeNormalFrame(void)
     /*----------------组帧(根据实际应用,只需修改以下)-------------------------*/
     Index = 1;
 
-    if (Device.CommMode.CommModeBits.Remote == 1)
+    if (Device.DstCommMode.CommModeBits.Remote == 1)
     {
         Command |= 0x80;
     }
-    else if (Device.CommMode.CommModeBits.Local == 1)
+    else if (Device.DstCommMode.CommModeBits.Local == 1)
     {
         Command |= 0x40;
     }
@@ -431,14 +459,10 @@ void MakeAdjustFrame(void)
     }
     if (Valve.Adjust.Adjust1.Adjust1Bits.Input20mA == 1)
     {
-        //Valve.Adjust.Adjust1.Adjust1Bits.Input20mA = 0;
-
         AdjustRequest[1] |= 0x02;
     }
     if (Valve.Adjust.Adjust1.Adjust1Bits.Input4mA == 1)
     {
-        //Valve.Adjust.Adjust1.Adjust1Bits.Input4mA = 0;
-
         AdjustRequest[1] |= 0x01;
     }
     SendBuf[Index++] = AdjustRequest[1];
@@ -656,34 +680,35 @@ void NormalFrameDeal(void)
     RecvBufIndex++;
 
     Device.WorkMode.CurWorkMode = 0x00;
+    Device.CurCommMode.CommModeBits.Bus = 0;
     switch(RecvBuf[RecvBufIndex])
     {
     case 0x00:
-        Device.CommMode.CommModeBits.Bus = 1;
+        Device.CurCommMode.CommModeBits.Bus = 1;
         Device.WorkMode.CurWorkMode = WorkMode_Bus;
         break;
     case 0x01:
-        Device.CommMode.CommModeBits.Remote = 1;
+        //Device.CurCommMode.CommModeBits.Remote = 1;
         Device.WorkMode.CurWorkMode = WorkMode_RemoteAN;
         break;
     case 0x02:
-        Device.CommMode.CommModeBits.Remote = 1;
+        //Device.CurCommMode.CommModeBits.Remote = 1;
         Device.WorkMode.CurWorkMode = WorkMode_RemoteJog;
         break;
     case 0x03:
-        Device.CommMode.CommModeBits.Remote = 1;
+        //Device.CurCommMode.CommModeBits.Remote = 1;
         Device.WorkMode.CurWorkMode = WorkMode_RemoteHold;
         break;
     case 0x04:
-        Device.CommMode.CommModeBits.Remote = 1;
+        //Device.CurCommMode.CommModeBits.Remote = 1;
         Device.WorkMode.CurWorkMode = WorkMode_RemoteDibit;
         break;
     case 0x05:
-        Device.CommMode.CommModeBits.Local = 1;
+        //Device.CurCommMode.CommModeBits.Local = 1;
         Device.WorkMode.CurWorkMode = WorkMode_LocalJog;
         break;
     case 0x06:
-        Device.CommMode.CommModeBits.Local = 1;
+        //Device.CurCommMode.CommModeBits.Local = 1;
         Device.WorkMode.CurWorkMode = WorkMode_LocalHold;
         break;
     case 0x07:
@@ -694,13 +719,14 @@ void NormalFrameDeal(void)
     } 
 
     //-手轮手动检测-
+    Device.CurCommMode.CommModeBits.Manual = 0;
     if (RecvBuf[RecvBufIndex] & 0x80)
     {
-        Device.CommMode.CommModeBits.Manual = 1;
+        Device.CurCommMode.CommModeBits.Manual = 1;
     }
     else
     {
-        Device.CommMode.CommModeBits.Manual = 0;
+        Device.CurCommMode.CommModeBits.Manual = 0;
     }
     //-ESD状态检测-
     if (RecvBuf[RecvBufIndex] & 0x40)
@@ -723,13 +749,15 @@ void NormalFrameDeal(void)
     RecvBufIndex++;
 
     //-当前状态信息-
+    Device.CurCommMode.CommModeBits.Remote = 0;
+    Device.CurCommMode.CommModeBits.Local  = 0;
     if ((RecvBuf[RecvBufIndex] & 0x80) != 0)
     {
-        Device.CommMode.CommModeBits.Remote = 1;
+        Device.CurCommMode.CommModeBits.Remote = 1;
     }
     else if ((RecvBuf[RecvBufIndex] & 0x40) != 0)
     {
-        Device.CommMode.CommModeBits.Local = 1;
+        Device.CurCommMode.CommModeBits.Local = 1;
     }
     Valve.Status.StatusByte = RecvBuf[RecvBufIndex] & 0x3F;
     RecvBufIndex++;

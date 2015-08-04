@@ -113,7 +113,8 @@ void ValveInit(void)
     Device.Action.Action                         = Action_None;
 
     Device.WorkMode.CurWorkMode                  = WorkMode_None;
-    Device.CommMode.CommModeByte                 = 0;
+    Device.CurCommMode.CommModeByte              = 0;
+    Device.DstCommMode.CommModeByte              = 0;
 
     Device.Status.Status                         = 0;
 

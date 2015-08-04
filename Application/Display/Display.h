@@ -57,9 +57,10 @@ extern "C" {
 #define Enable                       1
 #define Disable                      0
 
-#define Multiplex_Digit              0     //-数字复用-
+#define Multiplex_Digit              0     //-数字复用-      
 #define Multiplex_Adjust             1     //-标定时开/关-
 #define Multiplex_None               2     //-正常开和关-
+#define Multiplex_Password           3     //-密码输入-        
 
 
 /*------------页面编号------------*/
@@ -159,6 +160,8 @@ void AdjustZeroFull_Special(const MenuStructure *pMenu, MenuPara *pMenuPara, int
 void AdjustZeroFull_SetKey (const MenuStructure *pMenu, MenuPara *pMenuPara);
 void AdjustZeroFull_DownKey (const MenuStructure *pMenu, MenuPara *pMenuPara);
 void AdjustZeroFull_UpKey (const MenuStructure *pMenu, MenuPara *pMenuPara);
+void AdjustZeroFull_IncKey (const MenuStructure *pMenu, MenuPara *pMenuPara);
+void AdjustZeroFull_DecKey (const MenuStructure *pMenu, MenuPara *pMenuPara);
 
 void LocalMode_Special(const MenuStructure *pMenu, MenuPara *pMenuPara, int LineIndex);
 void LocalMode_SetKey(const MenuStructure *pMenu, MenuPara *pMenuPara);
@@ -195,10 +198,13 @@ void AdjustInput4_20mA_UpKey(const MenuStructure *pMenu, MenuPara *pMenuPara);
 
 
 void ShutCurrent_Special(const MenuStructure *pMenu, MenuPara *pMenuPara, int LineIndex);
+void ShutCurrent_DecKey(const MenuStructure *pMenu, MenuPara *pMenuPara);
+void ShutCurrent_IncKey(const MenuStructure *pMenu, MenuPara *pMenuPara);
 
 
 void OpenCurrent_Special(const MenuStructure *pMenu, MenuPara *pMenuPara, int LineIndex);
-
+void OpenCurrent_DecKey(const MenuStructure *pMenu, MenuPara *pMenuPara);
+void OpenCurrent_IncKey(const MenuStructure *pMenu, MenuPara *pMenuPara);
 
 void MaxActionTime_Special(const MenuStructure *pMenu, MenuPara *pMenuPara, int LineIndex);
 void MaxActionTime_SetKey(const MenuStructure *pMenu, MenuPara *pMenuPara);

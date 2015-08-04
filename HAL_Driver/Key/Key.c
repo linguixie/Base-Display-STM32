@@ -230,7 +230,7 @@ void IRKeyMsgGet(unsigned char *pKey, unsigned char *Long_Short)
 
                 /*-只有在现场模式下和无限位开、关情形下才允许一直按压表示按键一直有效-
                   -其他情形,一直按压只处理一次-*/
-                if ((Device.CommMode.CommModeBits.Local == 1) || (PageFunctionIndex == Page_AdjustZeroAction_ID) 
+                if ((Device.CurCommMode.CommModeBits.Local == 1) || (PageFunctionIndex == Page_AdjustZeroAction_ID) 
                     || (PageFunctionIndex == Page_AdjustFullAction_ID))
                 {
                 }
@@ -299,7 +299,7 @@ void KeyMsgGet(unsigned char *pKey, unsigned char *Long_Short)
             {
                 /*-只有在现场模式下和无限位开、关情形下才允许一直按压表示按键一直有效-
                   -其他情形,一直按压只处理一次-*/
-                if ((Device.CommMode.CommModeBits.Local == 1) || (PageFunctionIndex == Page_AdjustZeroAction_ID) 
+                if ((Device.CurCommMode.CommModeBits.Local == 1) || (PageFunctionIndex == Page_AdjustZeroAction_ID) 
                     || (PageFunctionIndex == Page_AdjustFullAction_ID))
                 {
                 }

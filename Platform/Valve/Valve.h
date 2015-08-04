@@ -577,7 +577,8 @@ typedef struct
 {
     DeviceOperation_T        Operation;
     DeviceAction_T           Action;
-    DeviceCommMode_T         CommMode;
+    DeviceCommMode_T         CurCommMode;
+    DeviceCommMode_T         DstCommMode;
     DeviceWorkMode_T         WorkMode;
     DeviceStatus_T           Status;
     DeviceError_T            Error;
