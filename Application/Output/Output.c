@@ -77,7 +77,7 @@ void AssistantOutput(void)
         if (ValveStatusChanged == 1)
         {
             UI_LED_FlashEver(Led_OpenLimit, 300, 300);
-            UI_LED_On(Led_ShutLimit);
+            UI_LED_Off(Led_ShutLimit);
         }
     }
     else if (Valve.Status.StatusBits.Shutting == 1)
@@ -85,7 +85,7 @@ void AssistantOutput(void)
         if (ValveStatusChanged == 1)
         {
             UI_LED_FlashEver(Led_ShutLimit, 300, 300);
-            UI_LED_On(Led_OpenLimit);
+            UI_LED_Off(Led_OpenLimit);
         }
     }
     else if (Valve.Status.StatusBits.OpenLimit == 1)
@@ -100,8 +100,8 @@ void AssistantOutput(void)
     }
     else 
     {
-        UI_LED_On(Led_OpenLimit);
-        UI_LED_On(Led_ShutLimit); 
+        UI_LED_Off(Led_OpenLimit);
+        UI_LED_Off(Led_ShutLimit); 
     }
 }
 

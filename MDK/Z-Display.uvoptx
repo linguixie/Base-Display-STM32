@@ -166,16 +166,16 @@
         <Bp>
           <Number>0</Number>
           <Type>0</Type>
-          <LineNumber>75</LineNumber>
+          <LineNumber>3435</LineNumber>
           <EnabledFlag>1</EnabledFlag>
-          <Address>134225900</Address>
+          <Address>134231186</Address>
           <ByteObject>0</ByteObject>
           <HtxType>0</HtxType>
           <ManyObjects>0</ManyObjects>
           <SizeOfObject>0</SizeOfObject>
           <BreakByAccess>0</BreakByAccess>
           <BreakIfRCount>1</BreakIfRCount>
-          <Filename>..\Application\Input\Input.c</Filename>
+          <Filename>..\Application\Display\Display.c</Filename>
           <ExecCommand></ExecCommand>
           <Expression></Expression>
         </Bp>
@@ -217,6 +217,11 @@
           <count>4</count>
           <WinNumber>2</WinNumber>
           <ItemText>keyScanEn</ItemText>
+        </Ww>
+        <Ww>
+          <count>5</count>
+          <WinNumber>2</WinNumber>
+          <ItemText>Device</ItemText>
         </Ww>
       </WatchWindow2>
       <MemoryWindow1>

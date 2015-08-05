@@ -450,7 +450,7 @@ const MenuStructure Menu_DeadZone[] =
 
   //-返回上级-
   {2,             Page_RemoteANMode_ID,    InvalidMenuID,           {0xA3A0, 0xA3A0, 0xA3A0, 0xA3A0, 0xB7B5, 0xBBD8, 0xC9CF, 0xBCB6},
-  DeadZone_Special, StandardMenu_Back2Parent, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
+  DeadZone_Special, StandardMenu_Back2Parent, DummyFunction, DummyFunction, DeadZone_IncKey, DeadZone_DecKey},
 
   //-切换至现场可调整-
   {3,             InvalidMenuID,           InvalidMenuID,           {0xC7D0, 0xBBBB, 0xD6C1, 0xCFD6, 0xB3A1, 0xBFC9, 0xB5F7, 0xD5FB},
@@ -699,7 +699,7 @@ const MenuStructure Menu_ShutCurrent[] =
 
   //-    返回上级-
   {2,             Page_InternalPara_ID,  InvalidMenuID,           {Space, Space, Space, Space, 0xB7B5, 0xBBD8, 0xC9CF, 0xBCB6},
-  ShutCurrent_Special, StandardMenu_Back2Parent, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
+  ShutCurrent_Special, StandardMenu_Back2Parent, DummyFunction, DummyFunction, ShutCurrent_IncKey, ShutCurrent_DecKey},
 
   //-切换至现场可调整-
   {3,             InvalidMenuID,         InvalidMenuID,           {0xC7D0, 0xBBBB, 0xD6C1, 0xCFD6, 0xB3A1, 0xBFC9, 0xB5F7, 0xD5FB},
@@ -724,7 +724,7 @@ const MenuStructure Menu_OpenCurrent[] =
 
   //-    返回上级-
   {2,             Page_InternalPara_ID,    InvalidMenuID,           {Space, Space, Space, Space, 0xB7B5, 0xBBD8, 0xC9CF, 0xBCB6},
-  OpenCurrent_Special, StandardMenu_Back2Parent, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
+  OpenCurrent_Special, StandardMenu_Back2Parent, DummyFunction, DummyFunction, OpenCurrent_IncKey, OpenCurrent_DecKey},
 
   //-切换至现场可调整-
   {3,             InvalidMenuID,         InvalidMenuID,           {0xC7D0, 0xBBBB, 0xD6C1, 0xCFD6, 0xB3A1, 0xBFC9, 0xB5F7, 0xD5FB},
@@ -749,7 +749,7 @@ const MenuStructure Menu_MaxActionTime[] =
 
   //-    返回上级-
   {2,             Page_InternalPara_ID,    InvalidMenuID,           {Space, Space, Space, Space, 0xB7B5, 0xBBD8, 0xC9CF, 0xBCB6},
-  MaxActionTime_Special, StandardMenu_Back2Parent, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
+  MaxActionTime_Special, StandardMenu_Back2Parent, DummyFunction, DummyFunction, MaxActionTime_IncKey, MaxActionTime_DecKey},
 
   //-切换至现场可调整-
   {3,             InvalidMenuID,         InvalidMenuID,           {0xC7D0, 0xBBBB, 0xD6C1, 0xCFD6, 0xB3A1, 0xBFC9, 0xB5F7, 0xD5FB},
@@ -1682,8 +1682,8 @@ void NormalPage_Special3(const MenuStructure *pMenu, MenuPara *pMenuPara, int Li
         break;
     case 7:
         Code[0] = 0xCDA3;    //-停-  
-        Code[1] = 0;
-        Code[2] = 0;
+        Code[1] = Space;
+        Code[2] = Space;
         Code[3] = 0xD6B9;    //-止-  
         break;
     default:
@@ -2291,11 +2291,6 @@ void DeadZone_Special(const MenuStructure *pMenu, MenuPara *pMenuPara, int LineI
 *******************************************************************************/
 void DeadZone_IncKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
 {
-    if (Device.Flag.FlagBits.IsInLocalAdjust == 0)
-    {
-        return;
-    }
-
     Device.Para.DeadZone++;
 
     if (Device.Para.DeadZone > 20)
@@ -2314,12 +2309,6 @@ void DeadZone_IncKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
 *******************************************************************************/
 void DeadZone_DecKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
 {
-    if (Device.Flag.FlagBits.IsInLocalAdjust == 0)
-    {
-        return;
-    }
-
-
     if (Device.Para.DeadZone <= 0)
     {
         Device.Para.DeadZone = 20;  
@@ -2767,11 +2756,6 @@ void AdjustInput4_20mA_DownKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
 *******************************************************************************/
 void ShutCurrent_IncKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
 {
-    if (Device.Flag.FlagBits.IsInLocalAdjust == 0)
-    {
-        return;
-    }
-
     Device.Para.MaxShutCurrent++;
     if (Device.Para.MaxShutCurrent > 250)
     {
@@ -2789,11 +2773,6 @@ void ShutCurrent_IncKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
 *******************************************************************************/
 void ShutCurrent_DecKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
 {
-    if (Device.Flag.FlagBits.IsInLocalAdjust == 0)
-    {
-        return;
-    }
-
     Device.Para.MaxShutCurrent--;
     if (Device.Para.MaxShutCurrent < 5)
     {
@@ -2865,11 +2844,6 @@ void ShutCurrent_Special(const MenuStructure *pMenu, MenuPara *pMenuPara, int Li
 *******************************************************************************/
 void OpenCurrent_IncKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
 {
-    if (Device.Flag.FlagBits.IsInLocalAdjust == 0)
-    {
-        return;
-    }
-
     Device.Para.MaxOpenCurrent++;
     if (Device.Para.MaxOpenCurrent > 250)
     {
@@ -2887,11 +2861,6 @@ void OpenCurrent_IncKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
 *******************************************************************************/
 void OpenCurrent_DecKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
 {
-    if (Device.Flag.FlagBits.IsInLocalAdjust == 0)
-    {
-        return;
-    }
-
     Device.Para.MaxOpenCurrent--;
     if (Device.Para.MaxOpenCurrent < 5)
     {

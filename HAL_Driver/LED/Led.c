@@ -56,10 +56,10 @@ void LedOn(int LedIndex)
     switch(LedIndex)
     {
     case LED_SHUTLIMIT:    
-        Led_ShutLimitSet();     
+        Led_ShutLimitClr();     
         break;
     case LED_OPENLIMIT:
-        Led_OpenLimitSet();
+        Led_OpenLimitClr();
         break;
     default:
         break;
@@ -79,10 +79,10 @@ void LedOff(int LedIndex)
     switch(LedIndex)
     {
     case LED_SHUTLIMIT:    
-        Led_ShutLimitClr();     
+        Led_ShutLimitSet();     
         break;
     case LED_OPENLIMIT:
-        Led_OpenLimitClr();
+        Led_OpenLimitSet();
         break;
     default:
         break;

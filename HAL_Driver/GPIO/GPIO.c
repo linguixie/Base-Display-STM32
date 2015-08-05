@@ -134,10 +134,12 @@ void GpioInit(void)
     GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
     GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
     GPIO_InitStructure.GPIO_PuPd  = GPIO_PuPd_UP ;
-    GPIO_Init(Led_OpenLimit_Port, &GPIO_InitStructure); 
+    GPIO_Init(Led_OpenLimit_Port, &GPIO_InitStructure);
+    Led_OpenLimitClr();
     //-ShutLimit-
     GPIO_InitStructure.GPIO_Pin   = Led_ShutLimit_Pin ;
-    GPIO_Init(Led_ShutLimit_Port, &GPIO_InitStructure);    
+    GPIO_Init(Led_ShutLimit_Port, &GPIO_InitStructure); 
+    Led_ShutLimitClr(); 
 
 
     /*-Lcd-*/
