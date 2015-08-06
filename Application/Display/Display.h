@@ -184,6 +184,11 @@ void Password_DownKey(const MenuStructure *pMenu, MenuPara *pMenuPara);
 void Password_DecKey(const MenuStructure *pMenu, MenuPara *pMenuPara);
 void Password_IncKey(const MenuStructure *pMenu, MenuPara *pMenuPara);
 
+
+void InternalPara_ESD_Special(const MenuStructure *pMenu, MenuPara *pMenuPara, int LineIndex);
+void InternalPara_ESD_SetKey(const MenuStructure *pMenu, MenuPara *pMenuPara);
+
+
 void AdjustOutput4_20mA_Special(const MenuStructure *pMenu, MenuPara *pMenuPara, int LineIndex);
 void AdjustOutput4mA_DecKey(const MenuStructure *pMenu, MenuPara *pMenuPara);
 void AdjustOutput4mA_IncKey(const MenuStructure *pMenu, MenuPara *pMenuPara);

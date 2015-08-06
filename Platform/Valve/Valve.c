@@ -128,7 +128,7 @@ void ValveInit(void)
 
     //-和面板交互的参数可以不初始化,因为在读取EEPROM时会初始化-
     Device.Para.RemoteType                       = RemoteType_Regulate;
-    Device.Para.ESDDisplayEnable                 = ESDDisplay_Enable;
+    Device.Para.ESDDisplayEnable                 = ESDDisplay_Disable;
     Device.Para.CurrentDisplayEnable             = CurrentDisplay_Disable;
     Device.Para.CurrentDecimalBits               = CurrentDecimalBits_One;
     Device.Para.MaxActionTime                    = 0;

@@ -524,7 +524,7 @@ const MenuStructure Menu_InternalPara[] =
 
   //-ESD设置-
   {8,             InvalidMenuID,           Page_ESDSetting_ID,      {0x45, 0x53, 0x44, 0xC9E8, 0xD6C3},
-  Dummy_Special, StandardMenu_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
+  InternalPara_ESD_Special, InternalPara_ESD_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
 
   //-返回上级-
   {9,             Page_MainMenu_ID,        InvalidMenuID,           {0xB7B5, 0xBBD8,0xC9CF, 0xBCB6},
@@ -1214,6 +1214,27 @@ void ShowInc_Dec(int LineIndex)
 * 输出参数:    无
 * 返 回 值:    无
 *******************************************************************************/
+void ShowReservedItem(int X_Offset)
+{
+    int Index = 0;
+    unsigned int Code[4] = {0};
+   
+    Code[Index++] = 0xB1A3;
+    Code[Index++] = 0xC1F4;
+    Code[Index++] = 0xCFEE;
+    Code[Index++] = 0xC4BF;
+
+    ShowBlock(&Code[0], Index, X_Offset);
+}
+
+
+/*******************************************************************************
+* 函数名称:    
+* 函数功能:    
+* 输入参数:    
+* 输出参数:    无
+* 返 回 值:    无
+*******************************************************************************/
 void ClearBuf(unsigned char *Buf, int BufLen)
 {
     int i = 0;
@@ -1628,6 +1649,7 @@ void NormalPage_Special3(const MenuStructure *pMenu, MenuPara *pMenuPara, int Li
 {
     int LineIndex = 0;
     int DisplayBufIndex = 0;
+    unsigned char RemoteMode = 0xFF;
 
     unsigned int  Code[4] = {0};
 
@@ -1645,28 +1667,26 @@ void NormalPage_Special3(const MenuStructure *pMenu, MenuPara *pMenuPara, int Li
         Code[3] = 0xD0C5;    //-信- 
         break;
     case 1:
-        Code[0] = 0xD4B6;    //-远-  
-        Code[1] = 0xB3CC;    //-程-  
-        Code[2] = 0xC4A3;    //-模-  
-        Code[3] = 0xC4E2;    //-拟- 
+        if ((Valve.Status.StatusBits.NoSignal == 1) && (Device.Para.RemoteANMode == RemoteANMode_NoSigKeep))
+        {
+            RemoteMode = Device.Para.RemoteIOMode;
+        }
+        else
+        {
+            Code[0] = 0xD4B6;    //-远-  
+            Code[1] = 0xB3CC;    //-程-  
+            Code[2] = 0xC4A3;    //-模-  
+            Code[3] = 0xC4E2;    //-拟- 
+        }
         break;
     case 2:
-        Code[0] = 0xD4B6;    //-远-  
-        Code[1] = 0xB3CC;    //-程-  
-        Code[2] = 0xB5E3;    //-点-  
-        Code[3] = 0xB6AF;    //-动- 
+        RemoteMode = RemoteIOMode_Jog;
         break;
     case 3:
-        Code[0] = 0xD4B6;    //-远-  
-        Code[1] = 0xB3CC;    //-程-  
-        Code[2] = 0xB1A3;    //-保-  
-        Code[3] = 0xB3D6;    //-持- 
+        RemoteMode = RemoteIOMode_Hold;
         break;
     case 4:
-        Code[0] = 0xD4B6;    //-远-  
-        Code[1] = 0xB3CC;    //-程-  
-        Code[2] = 0xCBAB;    //-双-  
-        Code[3] = 0xCEBB;    //-位- 
+        RemoteMode = RemoteIOMode_BiPos;
         break;
     case 5:
         Code[0] = 0xCFD6;    //-现-  
@@ -1689,6 +1709,38 @@ void NormalPage_Special3(const MenuStructure *pMenu, MenuPara *pMenuPara, int Li
     default:
         break;
     }
+
+    switch(RemoteMode)
+    {
+    case RemoteIOMode_Jog:
+        Code[0] = 0xD4B6;    //-远-  
+        Code[1] = 0xB3CC;    //-程-  
+        Code[2] = 0xB5E3;    //-点-  
+        Code[3] = 0xB6AF;    //-动- 
+        break;
+
+    case RemoteIOMode_Hold:
+    case RemoteIOMode_HoldNormallyOpen:
+    case RemoteIOMode_HoldNormallyShut:
+        Code[0] = 0xD4B6;    //-远-  
+        Code[1] = 0xB3CC;    //-程-  
+        Code[2] = 0xB1A3;    //-保-  
+        Code[3] = 0xB3D6;    //-持- 
+        break;
+
+    case RemoteIOMode_BiPos:
+    case RemoteIOMode_SignalOffNoOn:
+    case RemoteIOMode_SignalOnNoOff:
+        Code[0] = 0xD4B6;    //-远-  
+        Code[1] = 0xB3CC;    //-程-  
+        Code[2] = 0xCBAB;    //-双-  
+        Code[3] = 0xCEBB;    //-位- 
+        break;
+
+    default:
+        break;
+    }
+
    
     DisplayBufIndex = 32;
  
@@ -2516,6 +2568,46 @@ void Password_DecKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
     }
 
     Password[Index]--;
+}
+
+
+/*******************************************************************************
+* 函数名称:    
+* 函数功能:    
+* 输入参数:    
+* 输出参数:    无
+* 返 回 值:    无
+*******************************************************************************/
+void InternalPara_ESD_Special(const MenuStructure *pMenu, MenuPara *pMenuPara, int LineIndex)
+{
+    if (LineIndex != 8)
+    {
+        return;
+    }
+
+    if (Device.Para.ESDDisplayEnable == ESDDisplay_Disable)
+    {
+        ShowReservedItem(0);
+    }
+}
+
+
+/*******************************************************************************
+* 函数名称:    
+* 函数功能:    
+* 输入参数:    
+* 输出参数:    无
+* 返 回 值:    无
+*******************************************************************************/
+void InternalPara_ESD_SetKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
+{
+    if (Device.Para.ESDDisplayEnable == ESDDisplay_Disable)
+    {
+    }
+    else
+    {
+        StandardMenu_SetKey(pMenu, pMenuPara);
+    }
 }
 
 
