@@ -38,7 +38,8 @@
 #define MinLockTime      0x00
 
 //-为了书写方便-
-#define Space            GBK_Space
+#define ClearLongCode()     (ClearBuf((unsigned char *)&LongCode[0], sizeof(LongCode)))
+#define Space               GBK_Space
 
 //-虚拟按键,对按键的封装,V是Virtual-
 typedef enum
@@ -78,8 +79,8 @@ signed long AdjustInfoTimer = 0;
 ********************************************************************************/
 const unsigned short int SeriousErrorArray[8][2][16] = 
 {
-    //-阀位异常(Valve Pos Err!)-
-    {{0xB7A7, 0xCEBB, 0xD2EC, 0xB3A3},  {0x56, 0x61, 0x6C, 0x76, 0x65, 0x20, 0x50, 0x6F, 0x73, 0x20, 0x45, 0x72, 0x72, 0x21}},
+    //-阀位异常(ERR-POS)-
+    {{0xB7A7, 0xCEBB, 0xD2EC, 0xB3A3},  {0x45, 0x52, 0x52, 0x2D, 0x50, 0x4F, 0x53}},
     //-Reserved-
     {0},
     //-Reserved-
@@ -92,28 +93,28 @@ const unsigned short int SeriousErrorArray[8][2][16] =
     {0},
     //-Reserved-
     {0},
-    //-电源缺相(Phase Lack Err!)-
-    {{0xB5E7, 0xD4B4, 0xC8B1, 0xCFE0}, {0x50, 0x68, 0x61, 0x73, 0x65, 0x20, 0x4C, 0x61, 0x63, 0x6B, 0x20, 0x45, 0x72, 0x72, 0x21}}
+    //-电源缺相(ERR-PWR)-
+    {{0xB5E7, 0xD4B4, 0xC8B1, 0xCFE0}, {0x45, 0x52, 0x52, 0x2D, 0x50, 0x57, 0x52}}
     
 };
 const unsigned short int SlightErrorArray[8][2][16] = 
 {
-    //-关力矩故障(Open Torque Err!)-
-    {{0xB9D8, 0xCFF2, 0xB9FD, 0xBED8}, {0x4F, 0x70, 0x65, 0x6E, 0x20, 0x54, 0x6F, 0x72, 0x71, 0x75, 0x65, 0x20, 0x45, 0x72, 0x72, 0x21}},
-    //-开力矩故障(Shut Torque Err!)-
-    {{0xBFAA, 0xCFF2, 0xB9FD, 0xBED8}, {0x53, 0x68, 0x75, 0x74, 0x20, 0x54, 0x6F, 0x72, 0x71, 0x75, 0x65, 0x20, 0x45, 0x72, 0x72, 0x21}}, 
-    //-关向超时(Shut Timeout!)-
-    {{0xB9D8, 0xCFF2, 0xB3AC, 0xCAB1}, {0x53, 0x68, 0x75, 0x74, 0x20, 0x54, 0x69, 0x6D, 0x65, 0x6F, 0x75, 0x74, 0x21}},
-    //-开向超时(Open Timeout!)-
-    {{0xBFAA, 0xCFF2, 0xB3AC, 0xCAB1}, {0x4F, 0x70, 0x65, 0x6E, 0x20, 0x54, 0x69, 0x6D, 0x65, 0x6F, 0x75, 0x74, 0x21}},
-    //-关向过流(Shut OverCurrent)-
-    {{0xB9D8, 0xCFF2, 0xB9FD, 0xC1F7}, {0x53, 0x68, 0x75, 0x74, 0x20, 0x4F, 0x76, 0x65, 0x72, 0x43, 0x75, 0x72, 0x72, 0x65, 0x6E, 0x74}},
-    //-开向过流(Open OverCurrent)-
-    {{0xBFAA, 0xCFF2, 0xB9FD, 0xC1F7}, {0x4F, 0x70, 0x65, 0x6E, 0x20, 0x4F, 0x76, 0x65, 0x72, 0x43, 0x75, 0x72, 0x72, 0x65, 0x6E, 0x74}},
-    //-关向错误(Shut DIR Error!)-
-    {{0xB9D8, 0xCFF2, 0xB4ED, 0xCEF3}, {0x53, 0x68, 0x75, 0x74, 0x20, 0x44, 0x49, 0x52, 0x20, 0x45, 0x72, 0x72, 0x6F, 0x72, 0x21}},
-    //-开向错误(Open DIR Error!)-
-    {{0xBFAA, 0xCFF2, 0xB4ED, 0xCEF3}, {0x4F, 0x70, 0x65, 0x6E, 0x20, 0x44, 0x49, 0x52, 0x20, 0x45, 0x72, 0x72, 0x6F, 0x72, 0x21}},
+    //-关向过矩(ERR-TOP)-
+    {{0xB9D8, 0xCFF2, 0xB9FD, 0xBED8}, {0x45, 0x52, 0x52, 0x2D, 0x54, 0x4F, 0x50}},
+    //-开向过矩(ERR-TCP)-
+    {{0xBFAA, 0xCFF2, 0xB9FD, 0xBED8}, {0x45, 0x52, 0x52, 0x2D, 0x54, 0x43, 0x50}}, 
+    //-关向超时(ERR-CLT)-
+    {{0xB9D8, 0xCFF2, 0xB3AC, 0xCAB1}, {0x45, 0x52, 0x52, 0x2D, 0x43, 0x4C, 0x54}},
+    //-开向超时(ERR-OLT)-
+    {{0xBFAA, 0xCFF2, 0xB3AC, 0xCAB1}, {0x45, 0x52, 0x52, 0x2D, 0x4F, 0x4C, 0x54}},
+    //-关向过流(ERR-COC)-
+    {{0xB9D8, 0xCFF2, 0xB9FD, 0xC1F7}, {0x45, 0x52, 0x52, 0x2D, 0x43, 0x4F, 0x43}},
+    //-开向过流(ERR-OOC)-
+    {{0xBFAA, 0xCFF2, 0xB9FD, 0xC1F7}, {0x45, 0x52, 0x52, 0x2D, 0x4F, 0x4F, 0x43}},
+    //-关向错误(ERR-OPD)-
+    {{0xB9D8, 0xCFF2, 0xB4ED, 0xCEF3}, {0x45, 0x52, 0x52, 0x2D, 0x4F, 0x50, 0x44}},
+    //-开向错误(ERR-CLD)-
+    {{0xBFAA, 0xCFF2, 0xB4ED, 0xCEF3}, {0x45, 0x52, 0x52, 0x2D, 0x43, 0x4C, 0x44}},
 };
 
 
@@ -164,16 +165,16 @@ MenuPara      MenuPara_Template = {2, 2, Disable, Enable, 8, 4, Multiplex_None, 
 const MenuStructure Menu_PowerOn[] = 
 {
   /*-索引号       父菜单                 子菜单                   菜单项名称-*/
-  //-欢迎使用-
-  {0,             InvalidMenuID,           InvalidMenuID,         {0xA3A0, 0xA3A0, 0xA3A0, 0xA3A0, 0xBBB6, 0xD3AD, 0xCAB9, 0xD3C3,  0xA3A0, 0xA3A0, 0xA3A0, 0xA3A0},
+  //-欢迎使用(Welcome to use)-
+  {0,             InvalidMenuID,           InvalidMenuID,         {{Space, Space, Space, Space, 0xBBB6, 0xD3AD, 0xCAB9, 0xD3C3,  Space, Space, Space, Space}, {Space, 0x57, 0x65, 0x6C, 0x63, 0x6F, 0x6D, 0x65, 0x20, 0x74, 0x6F, 0x20, 0x75, 0x73, 0x65}},
   Dummy_Special,  StandardMenu_SetKey, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
 
-  //-电动阀门执行机构-
-  {1,             InvalidMenuID,           InvalidMenuID,         {0xB5E7, 0xB6AF, 0xB7A7, 0xC3C5, 0xD6B4, 0xD0D0, 0xBBFA, 0xB9B9},
+  //-电动阀门执行机构(valve actuator)-
+  {1,             InvalidMenuID,           InvalidMenuID,         {{0xB5E7, 0xB6AF, 0xB7A7, 0xC3C5, 0xD6B4, 0xD0D0, 0xBBFA, 0xB9B9}, {Space, 0x76, 0x61, 0x6C, 0x76, 0x65, 0x20, 0x61, 0x63, 0x74, 0x75, 0x61, 0x74, 0x6F, 0x72}},
   Dummy_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
 
-  //-版本V1.0-
-  {2,            InvalidMenuID,           InvalidMenuID,          {0xA3A0, 0xA3A0, 0xB0E6, 0xB1BE, 0xA3BA, 0xA3A0, 0xA3D6, 0xA3B1, 0xA3AE, 0xA3B0, 0xA3A0, 0xA3A0, 0xA3A0, 0xA3A0},
+  //-版本V1.2(Version1.2)-
+  {2,            InvalidMenuID,           InvalidMenuID,          {{Space, Space, 0xB0E6, 0xB1BE, 0xA3BA, Space, 0xA3D6, 0xA3B1, 0xA3AE, 0xA3B2, Space, Space, Space, Space}, {Space, Space, Space, 0x56, 0x65, 0x72, 0x73, 0x69, 0x6F, 0x6E, 0x31, 0x2E, 0x32}},
   Dummy_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
 
   //--
@@ -214,32 +215,32 @@ MenuPara      MenuPara_Normal = {0, Invalid, Disable, Disable, Invalid, 4, Multi
 const MenuStructure Menu_Main[] =         
 {
   /*-索引号       父菜单                 子菜单                   菜单项名称-*/
-  //-标定全关-
-  {0,             Page_Normal_ID,          Page_AdjustZero_ID,    {0xB1EA, 0xB6A8, 0xC8AB, 0xB9D8},
+  //-标定全关(Zero Set)-
+  {0,             Page_Normal_ID,          Page_AdjustZero_ID,    {{0xB1EA, 0xB6A8, 0xC8AB, 0xB9D8}, {0x5A, 0x65, 0x72, 0x6F, 0x20, 0x53, 0x65, 0x74}},
    Dummy_Special, StandardMenu_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
 
-  //-标定全开-
-  {1,             InvalidMenuID,           Page_AdjustFull_ID,    {0xB1EA, 0xB6A8, 0xC8AB, 0xBFAA},
+  //-标定全开(Full Set)-
+  {1,             InvalidMenuID,           Page_AdjustFull_ID,    {{0xB1EA, 0xB6A8, 0xC8AB, 0xBFAA}, {0x46, 0x75, 0x6C, 0x6C, 0x20, 0x53, 0x65, 0x74}},
    Dummy_Special, StandardMenu_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
   
-  //-现场控制方式-
-  {2,             InvalidMenuID,           Page_LocalMode_ID,     {0xCFD6, 0xB3A1, 0xBFD8, 0xD6C6, 0xB7BD, 0xCABD},
+  //-现场控制方式(Local Mode)-
+  {2,             InvalidMenuID,           Page_LocalMode_ID,     {{0xCFD6, 0xB3A1, 0xBFD8, 0xD6C6, 0xB7BD, 0xCABD}, {0x4C, 0x6F, 0x63, 0x61, 0x6C, 0x20, 0x4D, 0x6F, 0x64, 0x65}},
    Dummy_Special, StandardMenu_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
   
-  //-远程开关型设置-
-  {3,             InvalidMenuID,           Page_RemoteIOMode_ID,  {0xD4B6, 0xB3CC, 0xBFAA, 0xB9D8, 0xD0CD, 0xC9E8, 0xD6C3},
+  //-远程开关型设置(Remote(I/O) Mode)-
+  {3,             InvalidMenuID,           Page_RemoteIOMode_ID,  {{0xD4B6, 0xB3CC, 0xBFAA, 0xB9D8, 0xD0CD, 0xC9E8, 0xD6C3}, {0x52, 0x65, 0x6D, 0x6F, 0x74, 0x65, 0x28, 0x49, 0x2F, 0x4F, 0x29, 0x20, 0x4D, 0x6F, 0x64, 0x65}},
    Dummy_Special, StandardMenu_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
 
-  //-远程调节型设置-
-  {4,             InvalidMenuID,           Page_RemoteANMode_ID,  {0xD4B6, 0xB3CC, 0xB5F7, 0xBDDA, 0xD0CD, 0xC9E8, 0xD6C3},
+  //-远程调节型设置(Remote(AN) Mode)-
+  {4,             InvalidMenuID,           Page_RemoteANMode_ID,  {{0xD4B6, 0xB3CC, 0xB5F7, 0xBDDA, 0xD0CD, 0xC9E8, 0xD6C3}, {0x52, 0x65, 0x6D, 0x6F, 0x74, 0x65, 0x28, 0x41, 0x4E, 0x29, 0x20, 0x4D, 0x6F, 0x64, 0x65}},
    Dummy_Special, StandardMenu_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
   
-  //-内部参数-
-  {5,             InvalidMenuID,           Page_Password_ID,      {0xC4DA, 0xB2BF, 0xB2CE, 0xCAFD},
+  //-内部参数(Internal Para)-
+  {5,             InvalidMenuID,           Page_Password_ID,      {{0xC4DA, 0xB2BF, 0xB2CE, 0xCAFD}, {0x49, 0x6E, 0x74, 0x65, 0x72, 0x6E, 0x61, 0x6C, 0x20, 0x50, 0x61, 0x72, 0x61}},
    Dummy_Special, StandardMenu_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
   
-  //-退出设置-
-  {6,             Page_Normal_ID,          InvalidMenuID,           {0xCDCB, 0xB3F6, 0xC9E8, 0xD6C3},
+  //-退出设置(Exit)-
+  {6,             Page_Normal_ID,          InvalidMenuID,          {{0xCDCB, 0xB3F6, 0xC9E8, 0xD6C3}, {0x45, 0x78, 0x69, 0x74}},
    Dummy_Special, StandardMenu_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction}
 };   
 
@@ -251,20 +252,20 @@ MenuPara      MenuPara_Main = {0, Invalid, Enable, Disable, Invalid, 7, Multiple
 const MenuStructure Menu_AdjustZero[] = 
 {
   /*-索引号       父菜单                 子菜单                   菜单项名称-*/
-  //-把当前位置#0-
-  {0,             Page_MainMenu_ID,        InvalidMenuID,         {0xB0D1, 0xB5B1, 0xC7B0, 0xCEBB, 0xD6C3, 0xA3A3},
+  //-把当前位置#0(POS value #)-
+  {0,             Page_MainMenu_ID,        InvalidMenuID,         {{0xB0D1, 0xB5B1, 0xC7B0, 0xCEBB, 0xD6C3, 0xA3A3}, {0x50, 0x4F, 0x53, 0x20, 0x76, 0x61, 0x6C, 0x75, 0x65, Space, 0x23}},
    AdjustZeroFull_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
   
-  //-标定为0%-
-  {1,             InvalidMenuID,           InvalidMenuID,         {0xA3A0, 0xA3A0, 0xA3A0, 0xA3A0, 0xB1EA, 0xB6A8, 0xCEAA, 0xA3B0, 0xA3A5},
+  //-标定为0%(set to 0%)-
+  {1,             InvalidMenuID,           InvalidMenuID,         {{Space, Space, Space, Space, 0xB1EA, 0xB6A8, 0xCEAA, 0xA3B0, 0xA3A5}, {Space, Space, Space, Space, 0x73, 0x65, 0x74, 0x20, 0x74, 0x6F, 0x20, 0x30, 0x25}},
    AdjustZeroFull_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
 
-  //-确认  返回-
-  {2,             Page_MainMenu_ID,        InvalidMenuID,         {0xA3A0, 0xA3A0, 0xA3A0, 0xC8B7, 0xC8CF, 0xA3A0, 0xA3A0, 0xB7B5, 0xBBD8},
+  //-确认  返回(OK  Return)-
+  {2,             Page_MainMenu_ID,        InvalidMenuID,         {{Space, Space, Space, 0xC8B7, 0xC8CF, Space, Space, 0xB7B5, 0xBBD8}, {Space, Space, Space, 0x4F, 0x4B, Space, Space, 0x52, 0x65, 0x74, 0x75, 0x72, 0x6E}},
    AdjustZeroFull_Special, AdjustZeroFull_SetKey, AdjustZeroFull_UpKey, AdjustZeroFull_DownKey, AdjustZeroFull_IncKey, AdjustZeroFull_DecKey},  
 
-  //-切换至现场可调整-
-  {3,             InvalidMenuID,           InvalidMenuID,           {0xC7D0, 0xBBBB, 0xD6C1, 0xCFD6, 0xB3A1, 0xBFC9, 0xB5F7, 0xD5FB},
+  //-切换至现场可调整(Adjust in LOCAL)-
+  {3,             InvalidMenuID,           InvalidMenuID,         {{0xC7D0, 0xBBBB, 0xD6C1, 0xCFD6, 0xB3A1, 0xBFC9, 0xB5F7, 0xD5FB}, {0x41, 0x64, 0x6A, 0x75, 0x73, 0x74, 0x20, 0x69, 0x6E, 0x20, 0x4C, 0x4F, 0x43, 0x41, 0x4C}},
   AdjustZeroFull_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction}
 };   
    
@@ -280,12 +281,12 @@ const MenuStructure Menu_AdjustZeroInfo[] =
   {0,             Page_MainMenu_ID,        InvalidMenuID,         {0},
    Dummy_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
   
-  //-已把当前位置-
-  {1,             InvalidMenuID,           InvalidMenuID,         {0xA3A0, 0xA3A0, 0xD2D1, 0xB0D1, 0xB5B1, 0xC7B0, 0xCEBB, 0xD6C3},
+  //-已把当前位置(Adjust)-
+  {1,             InvalidMenuID,           InvalidMenuID,         {{Space, Space, 0xD2D1, 0xB0D1, 0xB5B1, 0xC7B0, 0xCEBB, 0xD6C3}, {Space, Space, Space, Space, Space, 0x41, 0x64, 0x6A, 0x75, 0x73, 0x74}},
    Dummy_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
   
-  //-成功标定为0%-
-  {2,             InvalidMenuID,           InvalidMenuID,         {0xA3A0, 0xA3A0, 0xB3C9, 0xB9A6, 0xB1EA, 0xB6A8, 0xCEAA, 0xA3B0, 0xA3A5},
+  //-成功标定为0%(Successfully!)-
+  {2,             InvalidMenuID,           InvalidMenuID,         {{Space, Space, 0xB3C9, 0xB9A6, 0xB1EA, 0xB6A8, 0xCEAA, 0xA3B0, 0xA3A5}, {Space, Space, 0x53, 0x75, 0x63, 0x63, 0x65, 0x73, 0x73, 0x66, 0x75, 0x6C, 0x6C, 0x79, 0x21}},
    Dummy_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
   
   //--
@@ -301,20 +302,20 @@ MenuPara      MenuPara_AdjustZeroInfo = {0, Invalid, Disable, Disable, Invalid, 
 const MenuStructure Menu_AdjustFull[] = 
 {
   /*-索引号       父菜单                 子菜单                   菜单项名称-*/
-  //-把当前位置#0-
-  {0,             Page_MainMenu_ID,       InvalidMenuID,         {0xB0D1, 0xB5B1, 0xC7B0, 0xCEBB, 0xD6C3, 0xA3A3},
+  //-把当前位置#0(POS value #)-
+  {0,             Page_MainMenu_ID,       InvalidMenuID,         {{0xB0D1, 0xB5B1, 0xC7B0, 0xCEBB, 0xD6C3, 0xA3A3}, {0x50, 0x4F, 0x53, 0x20, 0x76, 0x61, 0x6C, 0x75, 0x65, Space, 0x23}},
    AdjustZeroFull_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
   
-  //-标定为100%-
-  {1,             InvalidMenuID,           InvalidMenuID,         {0xA3A0, 0xA3A0, 0xA3A0, 0xA3A0, 0xB1EA, 0xB6A8, 0xCEAA,0xA3B1, 0xA3B0, 0xA3B0,0xA3A5},
+  //-标定为100%(set to 100%)-
+  {1,             InvalidMenuID,           InvalidMenuID,         {{Space, Space, Space, Space, 0xB1EA, 0xB6A8, 0xCEAA,0xA3B1, 0xA3B0, 0xA3B0,0xA3A5}, {Space, Space, Space, Space, 0x73, 0x65, 0x74, 0x20, 0x74, 0x6F, 0x20, 0x31, 0x30, 0x30, 0x25}},
    AdjustZeroFull_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
   
-  //-确认  返回-
-  {2,             Page_MainMenu_ID,        InvalidMenuID,         {0xA3A0, 0xA3A0, 0xA3A0, 0xC8B7, 0xC8CF, 0xA3A0, 0xA3A0, 0xB7B5, 0xBBD8},
+  //-确认  返回(OK  Return)-
+  {2,             Page_MainMenu_ID,        InvalidMenuID,         {{Space, Space, Space, 0xC8B7, 0xC8CF, Space, Space, 0xB7B5, 0xBBD8}, {Space, Space, Space, 0x4F, 0x4B, Space, Space, 0x52, 0x65, 0x74, 0x75, 0x72, 0x6E}},
    AdjustZeroFull_Special, AdjustZeroFull_SetKey, AdjustZeroFull_UpKey, AdjustZeroFull_DownKey, AdjustZeroFull_IncKey, AdjustZeroFull_DecKey},
 
-  //-切换至现场可调整-
-  {3,             InvalidMenuID,           InvalidMenuID,         {0xC7D0, 0xBBBB, 0xD6C1, 0xCFD6, 0xB3A1, 0xBFC9, 0xB5F7, 0xD5FB},
+  //-切换至现场可调整(Adjust in LOCAL)-
+  {3,             InvalidMenuID,           InvalidMenuID,         {{0xC7D0, 0xBBBB, 0xD6C1, 0xCFD6, 0xB3A1, 0xBFC9, 0xB5F7, 0xD5FB}, {0x41, 0x64, 0x6A, 0x75, 0x73, 0x74, 0x20, 0x69, 0x6E, 0x20, 0x4C, 0x4F, 0x43, 0x41, 0x4C}},
    AdjustZeroFull_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
 };   
 
@@ -330,12 +331,12 @@ const MenuStructure Menu_AdjustFullInfo[] =
   {0,             Page_MainMenu_ID,        InvalidMenuID,         {0},
    Dummy_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
   
-  //-已把当前位置-
-  {1,             InvalidMenuID,           InvalidMenuID,         {0xA3A0, 0xA3A0, 0xD2D1, 0xB0D1, 0xB5B1, 0xC7B0, 0xCEBB, 0xD6C3},
+  //-已把当前位置(Adjust)-
+  {1,             InvalidMenuID,           InvalidMenuID,         {{Space, Space, 0xD2D1, 0xB0D1, 0xB5B1, 0xC7B0, 0xCEBB, 0xD6C3}, {Space, Space, Space, Space, Space, 0x41, 0x64, 0x6A, 0x75, 0x73, 0x74}},
    Dummy_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
   
-  //-成功标定为100%-
-  {2,             InvalidMenuID,           InvalidMenuID,         {0xA3A0, 0xA3A0, 0xB3C9, 0xB9A6, 0xB1EA, 0xB6A8, 0xCEAA, 0xA3B1, 0xA3B0, 0xA3B0, 0xA3A5},
+  //-成功标定为100%(Successfully!)-
+  {2,             InvalidMenuID,           InvalidMenuID,         {{Space, Space, 0xB3C9, 0xB9A6, 0xB1EA, 0xB6A8, 0xCEAA, 0xA3B1, 0xA3B0, 0xA3B0, 0xA3A5}, {Space, Space, 0x53, 0x75, 0x63, 0x63, 0x65, 0x73, 0x73, 0x66, 0x75, 0x6C, 0x6C, 0x79, 0x21}},
    Dummy_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
   
   //--
@@ -351,16 +352,16 @@ MenuPara      MenuPara_AdjustFullInfo = {0, Invalid, Disable, Disable, Invalid, 
 const MenuStructure Menu_LocalMode[] = 
 {
   /*-索引号       父菜单                 子菜单                   菜单项名称-*/
-  //-现场点动控制-
-  {0,             Page_MainMenu_ID,        InvalidMenuID,           {0xCFD6, 0xB3A1, 0xB5E3, 0xB6AF, 0xBFD8, 0xD6C6},
+  //-现场点动控制(Inching)-
+  {0,             Page_MainMenu_ID,        InvalidMenuID,           {{0xCFD6, 0xB3A1, 0xB5E3, 0xB6AF, 0xBFD8, 0xD6C6}, {0x49, 0x6E, 0x63, 0x68, 0x69, 0x6E, 0x67}},
   LocalMode_Special, LocalMode_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
   
-  //-现场保持控制-
-  {1,             InvalidMenuID,           InvalidMenuID,           {0xCFD6, 0xB3A1, 0xB1A3, 0xB3D6, 0xBFD8, 0xD6C6},
+  //-现场保持控制(Holding)-
+  {1,             InvalidMenuID,           InvalidMenuID,           {{0xCFD6, 0xB3A1, 0xB1A3, 0xB3D6, 0xBFD8, 0xD6C6}, {0x48, 0x6F, 0x6C, 0x64, 0x69, 0x6E, 0x67}},
   LocalMode_Special, LocalMode_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
  
-  //-返回上级-
-  {2,             Page_MainMenu_ID,        InvalidMenuID,           {0xB7B5, 0xBBD8,0xC9CF, 0xBCB6},
+  //-返回上级(Return)-
+  {2,             Page_MainMenu_ID,        InvalidMenuID,           {{0xB7B5, 0xBBD8,0xC9CF, 0xBCB6}, {0x52, 0x65, 0x74, 0x75, 0x72, 0x6E}},
   Dummy_Special, StandardMenu_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction}
 };   
 
@@ -372,28 +373,28 @@ MenuPara      MenuPara_LocalMode = {0, Invalid, Enable, Disable, Invalid, 3, Mul
 const MenuStructure Menu_RemoteIOMode[] = 
 {
   /*-索引号       父菜单                 子菜单                   菜单项名称-*/
-  //-远程点动控制-
-  {0,             Page_MainMenu_ID,        InvalidMenuID,         {0xD4B6, 0xB3CC, 0xB5E3, 0xB6AF, 0xBFD8, 0xD6C6},
+  //-远程点动控制(Inching)-
+  {0,             Page_MainMenu_ID,        InvalidMenuID,         {{0xD4B6, 0xB3CC, 0xB5E3, 0xB6AF, 0xBFD8, 0xD6C6}, {0x49, 0x6E, 0x63, 0x68, 0x69, 0x6E, 0x67}},
   RemoteIOMode_Special, RemoteIOMode_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
 
-  //-远程保持停常开-
-  {1,             InvalidMenuID,           InvalidMenuID,         {0xD4B6, 0xB3CC, 0xB1A3, 0xB3D6, 0xCDA3, 0xB3A3, 0xBFAA},
+  //-远程保持停常开(Holding&Stp(NO))-
+  {1,             InvalidMenuID,           InvalidMenuID,         {{0xD4B6, 0xB3CC, 0xB1A3, 0xB3D6, 0xCDA3, 0xB3A3, 0xBFAA}, {0x48, 0x6F, 0x6C, 0x64, 0x69, 0x6E, 0x67, 0x26, 0x53, 0x74, 0x70, 0x28, 0x4E, 0x4F, 0x29}},
   RemoteIOMode_Special, RemoteIOMode_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
 
-  //-远程保持停常闭-
-  {2,             InvalidMenuID,           InvalidMenuID,         {0xD4B6, 0xB3CC, 0xB1A3, 0xB3D6, 0xCDA3, 0xB3A3, 0xB1D5},
+  //-远程保持停常闭(Holding&Stp(NC))-
+  {2,             InvalidMenuID,           InvalidMenuID,         {{0xD4B6, 0xB3CC, 0xB1A3, 0xB3D6, 0xCDA3, 0xB3A3, 0xB1D5}, {0x48, 0x6F, 0x6C, 0x64, 0x69, 0x6E, 0x67, 0x26, 0x53, 0x74, 0x70, 0x28, 0x4E, 0x43, 0x29}},
   RemoteIOMode_Special, RemoteIOMode_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
 
-  //-有信开无信关-
-  {3,             InvalidMenuID,           InvalidMenuID,         {0xD3D0, 0xD0C5, 0xBFAA, 0xCEDE, 0xD0C5, 0xB9D8},
+  //-有信开无信关(SIG-ON-No-OFF)-
+  {3,             InvalidMenuID,           InvalidMenuID,         {{0xD3D0, 0xD0C5, 0xBFAA, 0xCEDE, 0xD0C5, 0xB9D8}, {0x53, 0x49, 0x47, 0x2D, 0x4F, 0x4E, 0x2D, 0x4E, 0x6F, 0x2D, 0x4F, 0x46, 0x46}},
   RemoteIOMode_Special, RemoteIOMode_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
 
-  //-有信关无信开-
-  {4,             InvalidMenuID,           InvalidMenuID,         {0xD3D0, 0xD0C5, 0xB9D8, 0xCEDE, 0xD0C5, 0xBFAA},
+  //-有信关无信开(SIG-OFF-No-ON)-
+  {4,             InvalidMenuID,           InvalidMenuID,         {{0xD3D0, 0xD0C5, 0xB9D8, 0xCEDE, 0xD0C5, 0xBFAA}, {0x53, 0x49, 0x47, 0x2D, 0x4F, 0x46, 0x46, 0x2D, 0x4E, 0x6F, 0x2D, 0x4F, 0x4E}},
   RemoteIOMode_Special, RemoteIOMode_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
 
-  //-返回上级-
-  {5,             Page_MainMenu_ID,        InvalidMenuID,         {0xB7B5, 0xBBD8,0xC9CF, 0xBCB6},
+  //-返回上级(Return)-
+  {5,             Page_MainMenu_ID,        InvalidMenuID,         {{0xB7B5, 0xBBD8,0xC9CF, 0xBCB6}, {0x52, 0x65, 0x74, 0x75, 0x72, 0x6E}},
   Dummy_Special, StandardMenu_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction}
 };  
 
@@ -405,28 +406,28 @@ MenuPara      MenuPara_RemoteIOMode = {0, Invalid, Enable, Disable, Invalid, 6, 
 const MenuStructure Menu_RemoteANMode[] = 
 {
   /*-索引号       父菜单                 子菜单                   菜单项名称-*/
-  //-控制死区-
-  {0,             Page_MainMenu_ID,        Page_DeadZone_ID,        {0xBFD8, 0xD6C6,0xCBC0, 0xC7F8},
+  //-控制死区(DeadZone)-
+  {0,             Page_MainMenu_ID,        Page_DeadZone_ID,        {{0xBFD8, 0xD6C6,0xCBC0, 0xC7F8}, {0x44, 0x65, 0x61, 0x64, 0x20, 0x5A, 0x6F, 0x6E, 0x65}},
   Dummy_Special, StandardMenu_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
 
-  //-丢信保位-
-  {1,             InvalidMenuID,           InvalidMenuID,           {0xB6AA, 0xD0C5,0xB1A3, 0xCEBB},
+  //-丢信保位(No-SV Hold)-
+  {1,             InvalidMenuID,           InvalidMenuID,           {{0xB6AA, 0xD0C5,0xB1A3, 0xCEBB}, {0x4E, 0x6F, 0x2D, 0x53, 0x56, 0x20, 0x48, 0x6F, 0x6C, 0x64}},
   RemoteANMode_Special, RemoteANMode_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
 
-  //-丢信关闭-
-  {2,             InvalidMenuID,           InvalidMenuID,           {0xB6AA, 0xD0C5,0xB9D8, 0xB1D5},
+  //-丢信关闭(No-SV Close)-
+  {2,             InvalidMenuID,           InvalidMenuID,           {{0xB6AA, 0xD0C5,0xB9D8, 0xB1D5}, {0x4E, 0x6F, 0x2D, 0x53, 0x56, 0x20, 0x43, 0x6C, 0x6F, 0x73, 0x65}},
   RemoteANMode_Special, RemoteANMode_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
 
-  //-丢信居中-
-  {3,             InvalidMenuID,           InvalidMenuID,           {0xB6AA, 0xD0C5,0xBED3, 0xD6D0},
+  //-丢信居中(No-SV Mediate)-
+  {3,             InvalidMenuID,           InvalidMenuID,           {{0xB6AA, 0xD0C5,0xBED3, 0xD6D0}, {0x4E, 0x6F, 0x2D, 0x53, 0x56, 0x20, 0x4D, 0x65, 0x64, 0x69, 0x61, 0x74, 0x65}},
   RemoteANMode_Special, RemoteANMode_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
 
-  //-丢信打开-
-  {4,             InvalidMenuID,           InvalidMenuID,           {0xB6AA, 0xD0C5,0xB4F2, 0xBFAA},
+  //-丢信打开(No-SV Open)-
+  {4,             InvalidMenuID,           InvalidMenuID,           {{0xB6AA, 0xD0C5,0xB4F2, 0xBFAA}, {0x4E, 0x6F, 0x2D, 0x53, 0x56, 0x20, 0x4F, 0x70, 0x65, 0x6E}},
   RemoteANMode_Special, RemoteANMode_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
 
-  //-返回上级-
-  {5,             Page_MainMenu_ID,        InvalidMenuID,           {0xB7B5, 0xBBD8,0xC9CF, 0xBCB6},
+  //-返回上级(Return)-
+  {5,             Page_MainMenu_ID,        InvalidMenuID,           {{0xB7B5, 0xBBD8,0xC9CF, 0xBCB6}, {0x52, 0x65, 0x74, 0x75, 0x72, 0x6E}},
   Dummy_Special, StandardMenu_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction}
 };  
 
@@ -440,20 +441,20 @@ MenuPara      MenuPara_RemoteANMode = {0, Invalid, Enable, Disable, Invalid, 6, 
 const MenuStructure Menu_DeadZone[] = 
 {
   /*-索引号       父菜单                 子菜单                   菜单项名称-*/
-  //-设置控制死区-
-  {0,             Page_RemoteANMode_ID,    InvalidMenuID,           {0xC9E8, 0xD6C3, 0xBFD8, 0xD6C6, 0xCBC0, 0xC7F8},
+  //-设置控制死区(Set Dead Zone)-
+  {0,             Page_RemoteANMode_ID,    InvalidMenuID,           {{0xC9E8, 0xD6C3, 0xBFD8, 0xD6C6, 0xCBC0, 0xC7F8}, {0x53, 0x65, 0x74, 0x20, 0x44, 0x65, 0x61, 0x64, 0x20, 0x5A, 0x6F, 0x6E, 0x65}},
   Dummy_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
 
   //-自适应/x.x%-
   {1,             InvalidMenuID,           InvalidMenuID,           {0},
   DeadZone_Special, DummyFunction, DummyFunction, DummyFunction, DeadZone_IncKey, DeadZone_DecKey},
 
-  //-返回上级-
-  {2,             Page_RemoteANMode_ID,    InvalidMenuID,           {0xA3A0, 0xA3A0, 0xA3A0, 0xA3A0, 0xB7B5, 0xBBD8, 0xC9CF, 0xBCB6},
+  //-返回上级(Return)-
+  {2,             Page_RemoteANMode_ID,    InvalidMenuID,           {{Space, Space, Space, Space, 0xB7B5, 0xBBD8, 0xC9CF, 0xBCB6}, {Space, Space, Space, Space, 0x52, 0x65, 0x74, 0x75, 0x72, 0x6E}},
   DeadZone_Special, StandardMenu_Back2Parent, DummyFunction, DummyFunction, DeadZone_IncKey, DeadZone_DecKey},
 
-  //-切换至现场可调整-
-  {3,             InvalidMenuID,           InvalidMenuID,           {0xC7D0, 0xBBBB, 0xD6C1, 0xCFD6, 0xB3A1, 0xBFC9, 0xB5F7, 0xD5FB},
+  //-切换至现场可调整((Adjust in LOCAL))-
+  {3,             InvalidMenuID,           InvalidMenuID,           {{0xC7D0, 0xBBBB, 0xD6C1, 0xCFD6, 0xB3A1, 0xBFC9, 0xB5F7, 0xD5FB}, {0x41, 0x64, 0x6A, 0x75, 0x73, 0x74, 0x20, 0x69, 0x6E, 0x20, 0x4C, 0x4F, 0x43, 0x41, 0x4C}},
   DeadZone_Special, StandardMenu_SetKey, DummyFunction, DummyFunction, DummyFunction, DummyFunction}
 };  
 
@@ -465,20 +466,20 @@ MenuPara      MenuPara_DeadZone = {2, 4, Disable, Enable, 8, 4, Multiplex_Digit,
 const MenuStructure Menu_Password[] = 
 {
   /*-索引号       父菜单                 子菜单                   菜单项名称-*/
-  //-需由专业人员设置-
-  {0,             Page_MainMenu_ID,        InvalidMenuID,           {0xD0E8, 0xD3C9, 0xD7A8, 0xD2B5, 0xC8CB, 0xD4B1, 0xC9E8, 0xD6C3},  
+  //-需由专业人员设置(Set by PRO only)-
+  {0,             Page_MainMenu_ID,        InvalidMenuID,           {{0xD0E8, 0xD3C9, 0xD7A8, 0xD2B5, 0xC8CB, 0xD4B1, 0xC9E8, 0xD6C3}, {0x53, 0x65, 0x74, 0x20, 0x62, 0x79, 0x20, 0x50, 0x52, 0x4F, 0x20, 0x6F, 0x6E, 0x6C, 0x79}},
   Dummy_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
 
-  //-请输入密码-
-  {1,             InvalidMenuID,           InvalidMenuID,           {0xC7EB, 0xCAE4, 0xC8EB, 0xC3DC, 0xC2EB}, 
+  //-请输入密码(Input Password)-
+  {1,             InvalidMenuID,           InvalidMenuID,           {{0xC7EB, 0xCAE4, 0xC8EB, 0xC3DC, 0xC2EB}, {0x49, 0x6E, 0x70, 0x75, 0x74, 0x20, 0x50, 0x61, 0x73, 0x73, 0x77, 0x6F, 0x72, 0x64}}, 
   Dummy_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
 
   //- X X X X-
-  {2,             InvalidMenuID,           Page_InternalPara_ID,    {0xA3A0, 0xA3A0, 0xA3A0, 0xA3A0, 0xA3B0, 0xA3A0, 0xA3B0, 0xA3A0, 0xA3B0, 0xA3A0, 0xA3B0, 0xA3A0},
+  {2,             InvalidMenuID,           Page_InternalPara_ID,    {Space, Space, Space, Space, 0xA3B0, Space, 0xA3B0, Space, 0xA3B0, Space, 0xA3B0, Space},
   Password_Special, Password_SetKey, Password_UpKey, Password_DownKey, Password_IncKey, Password_DecKey},
 
-  //-密码错误重新输入-
-  {3,             InvalidMenuID,           InvalidMenuID,           {0xC3DC, 0xC2EB, 0xB4ED, 0xCEF3, 0xD6D8, 0xD0C2, 0xCAE4, 0xC8EB},
+  //-密码错误重新输入(Err! Input again)-
+  {3,             InvalidMenuID,           InvalidMenuID,           {{0xC3DC, 0xC2EB, 0xB4ED, 0xCEF3, 0xD6D8, 0xD0C2, 0xCAE4, 0xC8EB}, {0x45, 0x72, 0x72, 0x21, 0x20, 0x49, 0x6E, 0x70, 0x75, 0x74, 0x20, 0x61, 0x67, 0x61, 0x69, 0x6E}},
   Password_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction}
 };   
 
@@ -490,44 +491,44 @@ MenuPara      MenuPara_Password = {2, 4, Disable,Enable, 1, 4, Multiplex_Passwor
 const MenuStructure Menu_InternalPara[] = 
 {
   /*-索引号       父菜单                 子菜单                   菜单项名称-*/
-  //-反馈4mA修正-
-  {0,             Page_MainMenu_ID,        Page_AdjustOutput4mA_ID, {0xB7B4, 0xC0A1, 0xA3A0, 0xA3B4, 0xA3ED, 0xA3C1, 0xD0DE, 0xD5FD},
+  //-反馈4mA修正(Adjust Out-4mA)-
+  {0,             Page_MainMenu_ID,        Page_AdjustOutput4mA_ID, {{0xB7B4, 0xC0A1, Space, 0xA3B4, 0xA3ED, 0xA3C1, 0xD0DE, 0xD5FD}, {0x41, 0x64, 0x6A, 0x75, 0x73, 0x74, 0x20, 0x4F, 0x75, 0x74, 0x2D, 0x34, 0x6D, 0x41}},
   Dummy_Special, StandardMenu_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
 
-  //-反馈20mA修正-
-  {1,             InvalidMenuID,           Page_AdjustOutput20mA_ID,{0xB7B4, 0xC0A1,0xA3B2, 0xA3B0, 0xA3ED, 0xA3C1, 0xD0DE, 0xD5FD},
+  //-反馈20mA修正(Adjust Out-20mA)-
+  {1,             InvalidMenuID,           Page_AdjustOutput20mA_ID,{{0xB7B4, 0xC0A1,0xA3B2, 0xA3B0, 0xA3ED, 0xA3C1, 0xD0DE, 0xD5FD}, {0x41, 0x64, 0x6A, 0x75, 0x73, 0x74, 0x20, 0x4F, 0x75, 0x74, 0x2D, 0x32, 0x30, 0x6D, 0x41}},
   Dummy_Special, StandardMenu_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
 
-  //-输入4mA校准-
-  {2,             InvalidMenuID,           Page_AdjustInput4mA_ID,  {0xCAE4, 0xC8EB, 0xA3A0, 0xA3B4, 0xA3ED, 0xA3C1, 0xD0A3, 0xD7BC},
+  //-输入4mA校准(Adjust In-4mA)-
+  {2,             InvalidMenuID,           Page_AdjustInput4mA_ID,  {{0xCAE4, 0xC8EB, Space, 0xA3B4, 0xA3ED, 0xA3C1, 0xD0A3, 0xD7BC}, {0x41, 0x64, 0x6A, 0x75, 0x73, 0x74, 0x20, 0x49, 0x6E, 0x2D, 0x34, 0x6D, 0x41}},
   Dummy_Special, StandardMenu_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
 
-  //-输入20mA校准-
-  {3,             InvalidMenuID,           Page_AdjustInput20mA_ID, {0xCAE4, 0xC8EB,0xA3B2, 0xA3B0, 0xA3ED, 0xA3C1, 0xD0A3, 0xD7BC},
+  //-输入20mA校准(Adjust In-20mA)-
+  {3,             InvalidMenuID,           Page_AdjustInput20mA_ID, {{0xCAE4, 0xC8EB,0xA3B2, 0xA3B0, 0xA3ED, 0xA3C1, 0xD0A3, 0xD7BC}, {0x41, 0x64, 0x6A, 0x75, 0x73, 0x74, 0x20, 0x49, 0x6E, 0x2D, 0x32, 0x30, 0x6D, 0x41}},
   Dummy_Special, StandardMenu_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
 
-  //-设置关动作电流-
-  {4,             InvalidMenuID,           Page_ShutCurrent_ID,     {0xC9E8, 0xD6C3, 0xB9D8, 0xB6AF, 0xD7F7, 0xB5E7, 0xC1F7},
+  //-设置关动作电流(Max Clse Current)-
+  {4,             InvalidMenuID,           Page_ShutCurrent_ID,     {{0xC9E8, 0xD6C3, 0xB9D8, 0xB6AF, 0xD7F7, 0xB5E7, 0xC1F7}, {0x4D, 0x61, 0x78, 0x20, 0x43, 0x6C, 0x73, 0x65, 0x20, 0x43, 0x75, 0x72, 0x72, 0x65, 0x6E, 0x74}},
   Dummy_Special, StandardMenu_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
 
-  //-设置开动作电流-
-  {5,             InvalidMenuID,           Page_OpenCurrent_ID,     {0xC9E8, 0xD6C3, 0xBFAA, 0xB6AF, 0xD7F7, 0xB5E7, 0xC1F7},
+  //-设置开动作电流(Max Open Current)-
+  {5,             InvalidMenuID,           Page_OpenCurrent_ID,     {{0xC9E8, 0xD6C3, 0xBFAA, 0xB6AF, 0xD7F7, 0xB5E7, 0xC1F7}, {0x4D, 0x61, 0x78, 0x20, 0x4F, 0x70, 0x65, 0x6E, 0x20, 0x43, 0x75, 0x72, 0x72, 0x65, 0x6E, 0x74}},
   Dummy_Special, StandardMenu_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
 
-  //-阀门最大开闭时间-
-  {6,             InvalidMenuID,           Page_MaxActionTime_ID,   {0xB7A7, 0xC3C5,0xD7EE, 0xB4F3, 0xBFAA, 0xB1D5, 0xCAB1, 0xBCE4},
+  //-阀门最大开闭时间(Max Action Time)-
+  {6,             InvalidMenuID,           Page_MaxActionTime_ID,   {{0xB7A7, 0xC3C5,0xD7EE, 0xB4F3, 0xBFAA, 0xB1D5, 0xCAB1, 0xBCE4}, {0x4D, 0x61, 0x78, 0x20, 0x41, 0x63, 0x74, 0x69, 0x6F, 0x6E, 0x20, 0x54, 0x69, 0x6D, 0x65}},
   Dummy_Special, StandardMenu_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
 
-  //-故障反馈触点选择-
-  {7,             InvalidMenuID,           Page_ErrorFeedback_ID,   {0xB9CA, 0xD5CF, 0xB7B4, 0xC0A1, 0xB4A5, 0xB5E3, 0xD1A1, 0xD4F1},
+  //-故障反馈触点选择(Set Err contact)-
+  {7,             InvalidMenuID,           Page_ErrorFeedback_ID,   {{0xB9CA, 0xD5CF, 0xB7B4, 0xC0A1, 0xB4A5, 0xB5E3, 0xD1A1, 0xD4F1}, {0x53, 0x65, 0x74, 0x20, 0x45, 0x72, 0x72, 0x20, 0x63, 0x6F, 0x6E, 0x74, 0x61, 0x63, 0x74}},
   Dummy_Special, StandardMenu_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
 
-  //-ESD设置-
-  {8,             InvalidMenuID,           Page_ESDSetting_ID,      {0x45, 0x53, 0x44, 0xC9E8, 0xD6C3},
+  //-ESD设置(Set ESD Mode)-
+  {8,             InvalidMenuID,           Page_ESDSetting_ID,      {{0x45, 0x53, 0x44, 0xC9E8, 0xD6C3}, {0x53, 0x65, 0x74, 0x20, 0x45, 0x53, 0x44, 0x20, 0x4D, 0x6F, 0x64, 0x65}},
   InternalPara_ESD_Special, InternalPara_ESD_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
 
-  //-返回上级-
-  {9,             Page_MainMenu_ID,        InvalidMenuID,           {0xB7B5, 0xBBD8,0xC9CF, 0xBCB6},
+  //-返回上级(Return)-
+  {9,             Page_MainMenu_ID,        InvalidMenuID,           {{0xB7B5, 0xBBD8,0xC9CF, 0xBCB6}, {0x52, 0x65, 0x74, 0x75, 0x72, 0x6E}},
   Dummy_Special, StandardMenu_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction}
 };   
 
@@ -539,20 +540,20 @@ MenuPara      MenuPara_InternalPara = {0, Invalid, Enable, Disable, Invalid, 10,
 const MenuStructure Menu_AdjustOutput4mA[] = 
 {
   /*-索引号       父菜单                 子菜单                   菜单项名称-*/
-  //-反馈电流4mA修正-
-  {0,             Page_InternalPara_ID,    InvalidMenuID,           {0xB7B4, 0xC0A1, 0xB5E7, 0xC1F7, 0xA3B4, 0xA3ED, 0xA3C1, 0xD0DE, 0xD5FD},
+  //-反馈电流4mA修正(Adjust Out-4mA)-
+  {0,             Page_InternalPara_ID,    InvalidMenuID,           {{0xB7B4, 0xC0A1, 0xB5E7, 0xC1F7, 0xA3B4, 0xA3ED, 0xA3C1, 0xD0DE, 0xD5FD}, {0x41, 0x64, 0x6A, 0x75, 0x73, 0x74, 0x20, 0x4F, 0x75, 0x74, 0x2D, 0x34, 0x6D, 0x41}},
   Dummy_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
 
   //--
   {1,             InvalidMenuID,           InvalidMenuID,           {0},
   AdjustOutput4_20mA_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
 
-  //-返回上级-
-  {2,             Page_InternalPara_ID,    InvalidMenuID,           {0xA3A0, 0xA3A0, 0xA3A0, 0xA3A0, 0xB7B5, 0xBBD8, 0xC9CF, 0xBCB6},
+  //-返回上级(Return)-
+  {2,             Page_InternalPara_ID,    InvalidMenuID,           {{Space, Space, Space, Space, 0xB7B5, 0xBBD8, 0xC9CF, 0xBCB6}, {Space, Space, Space, Space, 0x52, 0x65, 0x74, 0x75, 0x72, 0x6E}},
   AdjustOutput4_20mA_Special, StandardMenu_Back2Parent, DummyFunction, DummyFunction, AdjustOutput4mA_IncKey, AdjustOutput4mA_DecKey},
 
-  //-切换至现场可调整-
-  {3,             InvalidMenuID,           InvalidMenuID,           {0xC7D0, 0xBBBB, 0xD6C1, 0xCFD6, 0xB3A1, 0xBFC9, 0xB5F7, 0xD5FB},
+  //-切换至现场可调整(Adjust in LOCAL)-
+  {3,             InvalidMenuID,           InvalidMenuID,           {{0xC7D0, 0xBBBB, 0xD6C1, 0xCFD6, 0xB3A1, 0xBFC9, 0xB5F7, 0xD5FB}, {0x41, 0x64, 0x6A, 0x75, 0x73, 0x74, 0x20, 0x69, 0x6E, 0x20, 0x4C, 0x4F, 0x43, 0x41, 0x4C}},
   AdjustOutput4_20mA_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction}
 };  
 
@@ -564,20 +565,20 @@ MenuPara      MenuPara_AdjustOutput4mA = {2, 4, Disable, Enable, 8, 4, Multiplex
 const MenuStructure Menu_AdjustOutput20mA[] = 
 {
   /*-索引号       父菜单                 子菜单                   菜单项名称-*/
-  //-反馈电流20mA修正-
-  {0,             Page_InternalPara_ID,    InvalidMenuID,           {0xB7B4, 0xC0A1, 0xB5E7, 0xC1F7, 0xA3B2, 0xA3B0, 0xA3ED, 0xA3C1, 0xD0DE, 0xD5FD},
+  //-反馈电流20mA修正(Adjust Out-20mA)-
+  {0,             Page_InternalPara_ID,    InvalidMenuID,           {{0xB7B4, 0xC0A1, 0xB5E7, 0xC1F7, 0xA3B2, 0xA3B0, 0xA3ED, 0xA3C1, 0xD0DE, 0xD5FD}, {0x41, 0x64, 0x6A, 0x75, 0x73, 0x74, 0x20, 0x4F, 0x75, 0x74, 0x2D, 0x32, 0x30, 0x6D, 0x41}},
   Dummy_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
 
   //-空行-
   {1,             InvalidMenuID,           InvalidMenuID,           {0},
   AdjustOutput4_20mA_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
 
-  //-返回上级-
-  {2,             Page_InternalPara_ID,    InvalidMenuID,           {0xA3A0, 0xA3A0, 0xA3A0, 0xA3A0, 0xB7B5, 0xBBD8, 0xC9CF, 0xBCB6},
+  //-返回上级(Return)-
+  {2,             Page_InternalPara_ID,    InvalidMenuID,           {{Space, Space, Space, Space, 0xB7B5, 0xBBD8, 0xC9CF, 0xBCB6}, {Space, Space, Space, Space, 0x52, 0x65, 0x74, 0x75, 0x72, 0x6E}},
   AdjustOutput4_20mA_Special, StandardMenu_Back2Parent, DummyFunction, DummyFunction, AdjustOutput20mA_IncKey, AdjustOutput20mA_DecKey}, 
 
-  //-切换至现场可调整-
-  {3,             InvalidMenuID,           InvalidMenuID,           {0xC7D0, 0xBBBB, 0xD6C1, 0xCFD6, 0xB3A1, 0xBFC9, 0xB5F7, 0xD5FB},
+  //-切换至现场可调整(Adjust in LOCAL)-
+  {3,             InvalidMenuID,           InvalidMenuID,           {{0xC7D0, 0xBBBB, 0xD6C1, 0xCFD6, 0xB3A1, 0xBFC9, 0xB5F7, 0xD5FB}, {0x41, 0x64, 0x6A, 0x75, 0x73, 0x74, 0x20, 0x69, 0x6E, 0x20, 0x4C, 0x4F, 0x43, 0x41, 0x4C}},
   AdjustOutput4_20mA_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction}
 };  
 
@@ -589,20 +590,20 @@ MenuPara      MenuPara_AdjustOutput20mA = {2, 4, Disable, Enable, 8, 4, Multiple
 const MenuStructure Menu_AdjustInput4mA[] = 
 {
   /*-索引号       父菜单                 子菜单                   菜单项名称-*/
-  //-把当前输入电流-
-  {0,             Page_InternalPara_ID,  InvalidMenuID,           {0xA3A0, 0xB0D1, 0xB5B1, 0xC7B0, 0xCAE4, 0xC8EB, 0xB5E7, 0xC1F7},
+  //-把当前输入电流(Set input Currnt)-
+  {0,             Page_InternalPara_ID,  InvalidMenuID,           {{Space, 0xB0D1, 0xB5B1, 0xC7B0, 0xCAE4, 0xC8EB, 0xB5E7, 0xC1F7}, {0x53, 0x65, 0x74, 0x20, 0x69, 0x6E, 0x70, 0x75, 0x74, 0x20, 0x43, 0x75, 0x72, 0x72, 0x6E, 0x74}},
   Dummy_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
 
-  //-约xx.xmA-
-  {1,             InvalidMenuID,         InvalidMenuID,           {0, 0, 0, 0, 0xD4BC, 0, 0, 0, 0, 0xA3ED, 0xA3C1},
+  //-约xx.xmA(xx.xmA)-
+  {1,             InvalidMenuID,         InvalidMenuID,           {{0, 0, 0, 0, 0xD4BC, 0, 0, 0, 0, 0xA3ED, 0xA3C1}, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0xA3ED, 0xA3C1}},
   AdjustInput4_20mA_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
   
-  //-标定为目标0%-
-  {2,             InvalidMenuID,         InvalidMenuID,           {0xA3A0, 0xB1EA, 0xB6A8, 0xCEAA,0xC4BF, 0xB1EA, 0xA3B0,0xA3A5},
+  //-标定为目标0%(to SV-0%)-
+  {2,             InvalidMenuID,         InvalidMenuID,           {{Space, 0xB1EA, 0xB6A8, 0xCEAA,0xC4BF, 0xB1EA, 0xA3B0,0xA3A5}, {Space, Space, Space, Space, 0x74, 0x6F, 0x20, 0x53, 0x56, 0x2D, 0x30, 0x25}},
   Dummy_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
 
-  //-确认  返回-
-  {3,             Page_InternalPara_ID,   Page_AdjustInput4mAInfo_ID,{0xA3A0, 0xA3A0, 0xA3A0, 0xC8B7, 0xC8CF, 0xA3A0, 0xA3A0, 0xB7B5, 0xBBD8},
+  //-确认  返回(OK Return)-
+  {3,             Page_InternalPara_ID,   Page_AdjustInput4mAInfo_ID,{{Space, Space, Space, 0xC8B7, 0xC8CF, Space, Space, 0xB7B5, 0xBBD8}, {Space, Space, Space, 0x4F, 0x4B, Space, Space, 0x52, 0x65, 0x74, 0x75, 0x72, 0x6E}},
   Dummy_Special, AdjustInput4_20mA_SetKey, AdjustInput4_20mA_UpKey, AdjustInput4_20mA_DownKey, DummyFunction, DummyFunction},
 };   
 
@@ -618,12 +619,12 @@ const MenuStructure Menu_AdjustInput4mAInfo[] =
   {0,             Page_InternalPara_ID,    InvalidMenuID,           {0},
    Dummy_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
   
-  //-已把当前电流-
-  {1,             InvalidMenuID,           InvalidMenuID,           {0xA3A0, 0xA3A0, 0xD2D1, 0xB0D1, 0xB5B1, 0xC7B0, 0xB5E7, 0xC1F7},
+  //-已把当前电流(Adjust)-
+  {1,             InvalidMenuID,           InvalidMenuID,           {{Space, Space, 0xD2D1, 0xB0D1, 0xB5B1, 0xC7B0, 0xB5E7, 0xC1F7}, {Space, Space, Space, Space, Space, 0x41, 0x64, 0x6A, 0x75, 0x73, 0x74}},
    Dummy_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
   
-  //-成功标定为0%-
-  {2,             InvalidMenuID,           InvalidMenuID,           {0xA3A0, 0xA3A0, 0xB3C9, 0xB9A6, 0xB1EA, 0xB6A8, 0xCEAA, 0xA3B0, 0xA3A5},
+  //-成功标定为0%(Successfully!)-
+  {2,             InvalidMenuID,           InvalidMenuID,           {{Space, Space, 0xB3C9, 0xB9A6, 0xB1EA, 0xB6A8, 0xCEAA, 0xA3B0, 0xA3A5}, {Space, Space, 0x53, 0x75, 0x63, 0x63, 0x65, 0x73, 0x73, 0x66, 0x75, 0x6C, 0x6C, 0x79, 0x21}},
    Dummy_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
   
   //--
@@ -639,20 +640,20 @@ MenuPara      MenuPara_AdjustInput4mAInfo = {0, Invalid, Disable, Disable, Inval
 const MenuStructure Menu_AdjustInput20mA[] = 
 {
   /*-索引号       父菜单                 子菜单                   菜单项名称-*/
-  //-把当前输入电流-
-  {0,             Page_InternalPara_ID,    InvalidMenuID,           {0xA3A0, 0xB0D1, 0xB5B1, 0xC7B0, 0xCAE4, 0xC8EB, 0xB5E7, 0xC1F7},
+  //-把当前输入电流(Set input Currnt)-
+  {0,             Page_InternalPara_ID,    InvalidMenuID,           {{Space, 0xB0D1, 0xB5B1, 0xC7B0, 0xCAE4, 0xC8EB, 0xB5E7, 0xC1F7}, {0x53, 0x65, 0x74, 0x20, 0x69, 0x6E, 0x70, 0x75, 0x74, 0x20, 0x43, 0x75, 0x72, 0x72, 0x6E, 0x74}},
   Dummy_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
 
-  //-约xx.xmA-
-  {1,             InvalidMenuID,           InvalidMenuID,           {0, 0, 0, 0, 0xD4BC, 0, 0, 0, 0, 0xA3ED, 0xA3C1},
+  //-约xx.xmA(xx.xmA)-
+  {1,             InvalidMenuID,           InvalidMenuID,           {{0, 0, 0, 0, 0xD4BC, 0, 0, 0, 0, 0xA3ED, 0xA3C1}, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0xA3ED, 0xA3C1}},
   AdjustInput4_20mA_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
   
-  //-标定为目标100%-
-  {2,             InvalidMenuID,           InvalidMenuID,           {0xA3A0, 0xB1EA, 0xB6A8, 0xCEAA,0xC4BF, 0xB1EA, 0xA3B1, 0xA3B0, 0xA3B0,0xA3A5},
+  //-标定为目标100%(to SV-100%)-
+  {2,             InvalidMenuID,           InvalidMenuID,           {{Space, 0xB1EA, 0xB6A8, 0xCEAA,0xC4BF, 0xB1EA, 0xA3B1, 0xA3B0, 0xA3B0,0xA3A5}, {Space, Space, Space, Space, 0x74, 0x6F, 0x20, 0x53, 0x56, 0x2D, 0x31, 0x30, 0x30, 0x25}},
   Dummy_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
 
-  //-确认  返回-
-  {3,             Page_InternalPara_ID,     Page_AdjustInput20mAInfo_ID,{0xA3A0, 0xA3A0, 0xA3A0, 0xC8B7, 0xC8CF, 0xA3A0, 0xA3A0, 0xB7B5, 0xBBD8},
+  //-确认  返回(OK Return)-
+  {3,             Page_InternalPara_ID,     Page_AdjustInput20mAInfo_ID,{{Space, Space, Space, 0xC8B7, 0xC8CF, Space, Space, 0xB7B5, 0xBBD8}, {Space, Space, Space, 0x4F, 0x4B, Space, Space, 0x52, 0x65, 0x74, 0x75, 0x72, 0x6E}},
   Dummy_Special, AdjustInput4_20mA_SetKey, AdjustInput4_20mA_UpKey, AdjustInput4_20mA_DownKey, DummyFunction, DummyFunction},
 };   
 
@@ -668,12 +669,12 @@ const MenuStructure Menu_AdjustInput20mAInfo[] =
   {0,             Page_InternalPara_ID,    InvalidMenuID,           {0},
    Dummy_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
   
-  //-已把当前电流-
-  {1,             InvalidMenuID,           InvalidMenuID,           {0xA3A0, 0xA3A0, 0xD2D1, 0xB0D1, 0xB5B1, 0xC7B0, 0xB5E7, 0xC1F7},
+  //-已把当前电流(Adjust)-
+  {1,             InvalidMenuID,           InvalidMenuID,           {{Space, Space, 0xD2D1, 0xB0D1, 0xB5B1, 0xC7B0, 0xB5E7, 0xC1F7}, {Space, Space, Space, Space, Space, 0x41, 0x64, 0x6A, 0x75, 0x73, 0x74}},
    Dummy_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
   
-  //-成功标定为100%-
-  {2,             InvalidMenuID,           InvalidMenuID,           {0xA3A0, 0xA3A0, 0xB3C9, 0xB9A6, 0xB1EA, 0xB6A8, 0xCEAA, 0xA3B1, 0xA3B0, 0xA3B0, 0xA3A5},
+  //-成功标定为100%(Successfully!)-
+  {2,             InvalidMenuID,           InvalidMenuID,           {{Space, Space, 0xB3C9, 0xB9A6, 0xB1EA, 0xB6A8, 0xCEAA, 0xA3B1, 0xA3B0, 0xA3B0, 0xA3A5}, {Space, Space, 0x53, 0x75, 0x63, 0x63, 0x65, 0x73, 0x73, 0x66, 0x75, 0x6C, 0x6C, 0x79, 0x21}},
    Dummy_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
   
   //--
@@ -689,20 +690,20 @@ MenuPara      MenuPara_AdjustInput20mAInfo = {0, Invalid, Disable, Disable, Inva
 const MenuStructure Menu_ShutCurrent[] = 
 {
   /*-索引号       父菜单                 子菜单                   菜单项名称-*/
-  //-设置关向动作电流-
-  {0,             Page_InternalPara_ID,  InvalidMenuID,           {0xC9E8, 0xD6C3, 0xB9D8, 0xCFF2, 0xB6AF, 0xD7F7, 0xB5E7, 0xC1F7},
+  //-设置关向动作电流(Max Clse Current)-
+  {0,             Page_InternalPara_ID,  InvalidMenuID,           {{0xC9E8, 0xD6C3, 0xB9D8, 0xCFF2, 0xB6AF, 0xD7F7, 0xB5E7, 0xC1F7}, {0x4D, 0x61, 0x78, 0x20, 0x43, 0x6C, 0x73, 0x65, 0x20, 0x43, 0x75, 0x72, 0x72, 0x65, 0x6E, 0x74}},
   Dummy_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
 
   //--
   {1,             InvalidMenuID,         InvalidMenuID,           {0},
   ShutCurrent_Special, DummyFunction, DummyFunction, DummyFunction, ShutCurrent_IncKey, ShutCurrent_DecKey},
 
-  //-    返回上级-
-  {2,             Page_InternalPara_ID,  InvalidMenuID,           {Space, Space, Space, Space, 0xB7B5, 0xBBD8, 0xC9CF, 0xBCB6},
+  //-    返回上级(Return)-
+  {2,             Page_InternalPara_ID,  InvalidMenuID,           {{Space, Space, Space, Space, 0xB7B5, 0xBBD8, 0xC9CF, 0xBCB6}, {Space, Space, Space, Space, 0x52, 0x65, 0x74, 0x75, 0x72, 0x6E}},
   ShutCurrent_Special, StandardMenu_Back2Parent, DummyFunction, DummyFunction, ShutCurrent_IncKey, ShutCurrent_DecKey},
 
-  //-切换至现场可调整-
-  {3,             InvalidMenuID,         InvalidMenuID,           {0xC7D0, 0xBBBB, 0xD6C1, 0xCFD6, 0xB3A1, 0xBFC9, 0xB5F7, 0xD5FB},
+  //-切换至现场可调整(Adjust in LOCAL)-
+  {3,             InvalidMenuID,         InvalidMenuID,           {{0xC7D0, 0xBBBB, 0xD6C1, 0xCFD6, 0xB3A1, 0xBFC9, 0xB5F7, 0xD5FB}, {0x41, 0x64, 0x6A, 0x75, 0x73, 0x74, 0x20, 0x69, 0x6E, 0x20, 0x4C, 0x4F, 0x43, 0x41, 0x4C}},
   ShutCurrent_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
 };
 
@@ -714,20 +715,20 @@ MenuPara      MenuPara_ShutCurrent = {2, 4, Disable, Enable, 8, 4, Multiplex_Dig
 const MenuStructure Menu_OpenCurrent[] = 
 {
   /*-索引号       父菜单                 子菜单                   菜单项名称-*/
-  //-设置开向动作电流-
-  {0,             Page_InternalPara_ID,  InvalidMenuID,           {0xC9E8, 0xD6C3, 0xBFAA, 0xCFF2, 0xB6AF, 0xD7F7, 0xB5E7, 0xC1F7},
+  //-设置开向动作电流(Max Open Current)-
+  {0,             Page_InternalPara_ID,  InvalidMenuID,           {{0xC9E8, 0xD6C3, 0xBFAA, 0xCFF2, 0xB6AF, 0xD7F7, 0xB5E7, 0xC1F7}, {0x4D, 0x61, 0x78, 0x20, 0x4F, 0x70, 0x65, 0x6E, 0x20, 0x43, 0x75, 0x72, 0x72, 0x65, 0x6E, 0x74}},
   Dummy_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
 
   //--
   {1,             InvalidMenuID,         InvalidMenuID,           {0},
   OpenCurrent_Special, DummyFunction, DummyFunction, DummyFunction, OpenCurrent_IncKey, OpenCurrent_DecKey},
 
-  //-    返回上级-
-  {2,             Page_InternalPara_ID,    InvalidMenuID,           {Space, Space, Space, Space, 0xB7B5, 0xBBD8, 0xC9CF, 0xBCB6},
+  //-    返回上级(Return)-
+  {2,             Page_InternalPara_ID,    InvalidMenuID,         {{Space, Space, Space, Space, 0xB7B5, 0xBBD8, 0xC9CF, 0xBCB6}, {Space, Space, Space, Space, 0x52, 0x65, 0x74, 0x75, 0x72, 0x6E}},
   OpenCurrent_Special, StandardMenu_Back2Parent, DummyFunction, DummyFunction, OpenCurrent_IncKey, OpenCurrent_DecKey},
 
-  //-切换至现场可调整-
-  {3,             InvalidMenuID,         InvalidMenuID,           {0xC7D0, 0xBBBB, 0xD6C1, 0xCFD6, 0xB3A1, 0xBFC9, 0xB5F7, 0xD5FB},
+  //-切换至现场可调整(Adjust in LOCAL)-
+  {3,             InvalidMenuID,         InvalidMenuID,           {{0xC7D0, 0xBBBB, 0xD6C1, 0xCFD6, 0xB3A1, 0xBFC9, 0xB5F7, 0xD5FB}, {0x41, 0x64, 0x6A, 0x75, 0x73, 0x74, 0x20, 0x69, 0x6E, 0x20, 0x4C, 0x4F, 0x43, 0x41, 0x4C}},
   OpenCurrent_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
 };
 
@@ -739,20 +740,20 @@ MenuPara      MenuPara_OpenCurrent = {2, 4, Disable, Enable, 8, 4, Multiplex_Dig
 const MenuStructure Menu_MaxActionTime[] = 
 {
   /*-索引号       父菜单                 子菜单                   菜单项名称-*/
-  //-阀门最大开闭时间-
-  {0,             Page_InternalPara_ID,    InvalidMenuID,           {0xB7A7, 0xC3C5, 0xD7EE, 0xB4F3, 0xBFAA, 0xB1D5, 0xCAB1, 0xBCE4},
+  //-阀门最大开闭时间(Max Action Time)-
+  {0,             Page_InternalPara_ID,    InvalidMenuID,           {{0xB7A7, 0xC3C5, 0xD7EE, 0xB4F3, 0xBFAA, 0xB1D5, 0xCAB1, 0xBCE4}, {0x4D, 0x61, 0x78, 0x20, 0x41, 0x63, 0x74, 0x69, 0x6F, 0x6E, 0x20, 0x54, 0x69, 0x6D, 0x65}},
   Dummy_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
 
   //-不限时/xxxS-
   {1,             Page_InternalPara_ID,    InvalidMenuID,           {0},
   MaxActionTime_Special, MaxActionTime_SetKey, DummyFunction, DummyFunction, MaxActionTime_IncKey, MaxActionTime_DecKey},
 
-  //-    返回上级-
-  {2,             Page_InternalPara_ID,    InvalidMenuID,           {Space, Space, Space, Space, 0xB7B5, 0xBBD8, 0xC9CF, 0xBCB6},
+  //-    返回上级(Return)-
+  {2,             Page_InternalPara_ID,    InvalidMenuID,          {{Space, Space, Space, Space, 0xB7B5, 0xBBD8, 0xC9CF, 0xBCB6}, {Space, Space, Space, Space, 0x52, 0x65, 0x74, 0x75, 0x72, 0x6E}},
   MaxActionTime_Special, StandardMenu_Back2Parent, DummyFunction, DummyFunction, MaxActionTime_IncKey, MaxActionTime_DecKey},
 
-  //-切换至现场可调整-
-  {3,             InvalidMenuID,         InvalidMenuID,           {0xC7D0, 0xBBBB, 0xD6C1, 0xCFD6, 0xB3A1, 0xBFC9, 0xB5F7, 0xD5FB},
+  //-切换至现场可调整(Adjust in LOCAL)-
+  {3,             InvalidMenuID,         InvalidMenuID,           {{0xC7D0, 0xBBBB, 0xD6C1, 0xCFD6, 0xB3A1, 0xBFC9, 0xB5F7, 0xD5FB}, {0x41, 0x64, 0x6A, 0x75, 0x73, 0x74, 0x20, 0x69, 0x6E, 0x20, 0x4C, 0x4F, 0x43, 0x41, 0x4C}},
   MaxActionTime_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
 };  
 
@@ -764,21 +765,21 @@ MenuPara      MenuPara_MaxActionTime = {1, 6, Disable, Enable, 6, 4, Multiplex_D
 const MenuStructure Menu_ErrorFeedback[] = 
 {
   /*-索引号       父菜单                 子菜单                   菜单项名称-*/
-  //-故障反馈触点选择-
-  {0,             Page_InternalPara_ID,  InvalidMenuID,           {0xB9CA, 0xD5CF, 0xB7B4, 0xC0A1, 0xB4A5, 0xB5E3, 0xD1A1, 0xD4F1},
+  //-故障反馈触点选择(Set Err contact)-
+  {0,             Page_InternalPara_ID,  InvalidMenuID,           {{0xB9CA, 0xD5CF, 0xB7B4, 0xC0A1, 0xB4A5, 0xB5E3, 0xD1A1, 0xD4F1}, {0x53, 0x65, 0x74, 0x20, 0x45, 0x72, 0x72, 0x20, 0x63, 0x6F, 0x6E, 0x74, 0x61, 0x63, 0x74}},
   Dummy_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
 
-  //-有故障闭合NO-
-  {1,             InvalidMenuID,         InvalidMenuID,           {0xD3D0, 0xB9CA, 0xD5CF, 0xB1D5, 0xBACF, 0x4E, 0x4F},
-  ErrorFeedback_Special, ErrorFeedback_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
+  //-有故障闭合NO(Error NO)-
+  {1,             InvalidMenuID,         InvalidMenuID,           {{0xD3D0, 0xB9CA, 0xD5CF, 0xB1D5, 0xBACF, 0x4E, 0x4F}, {0x45, 0x72, 0x72, 0x6F, 0x72, 0x20, 0x4E, 0x4F}},
+  ErrorFeedback_Special, ErrorFeedback_SetKey, ErrorFeedback_UpKey, ErrorFeedback_DownKey, DummyFunction, DummyFunction},
 
-  //-有故障闭合NC-
-  {2,             InvalidMenuID,         InvalidMenuID,           {0xD3D0, 0xB9CA, 0xD5CF, 0xB1D5, 0xBACF, 0x4E, 0x43},
-  ErrorFeedback_Special, ErrorFeedback_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
+  //-有故障断开NC(Error NC)-
+  {2,             InvalidMenuID,         InvalidMenuID,           {{0xD3D0, 0xB9CA, 0xD5CF, 0xB6CF, 0xBFAA, 0x4E, 0x43}, {0x45, 0x72, 0x72, 0x6F, 0x72, 0x20, 0x4E, 0x43}},
+  ErrorFeedback_Special, ErrorFeedback_SetKey, ErrorFeedback_UpKey, ErrorFeedback_DownKey, DummyFunction, DummyFunction},
 
-  //-返回上级-
-  {3,             Page_InternalPara_ID,  InvalidMenuID,           {0xB7B5, 0xBBD8, 0xC9CF, 0xBCB6},
-  Dummy_Special, StandardMenu_Back2Parent, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
+  //-返回上级(Return)-
+  {3,             Page_InternalPara_ID,  InvalidMenuID,           {{0xB7B5, 0xBBD8, 0xC9CF, 0xBCB6}, {0x52, 0x65, 0x74, 0x75, 0x72, 0x6E}},
+  Dummy_Special, StandardMenu_Back2Parent, ErrorFeedback_UpKey, ErrorFeedback_DownKey, DummyFunction, DummyFunction},
 };
 
 //-第6个初始值代表菜单项个数,必须给正确的值-
@@ -789,28 +790,28 @@ MenuPara      MenuPara_ErrorFeedback = {1, Invalid, Enable, Disable, 8, 4, Multi
 const MenuStructure Menu_ESDSetting[] = 
 {
   /*-索引号       父菜单                 子菜单                   菜单项名称-*/
-  //-ESD禁用-
-  {0,             Page_InternalPara_ID,  InvalidMenuID,           {0x45, 0x53, 0x44, 0xBDFB, 0xD3C3},
+  //-ESD禁用(ESD Disable)-
+  {0,             Page_InternalPara_ID,  InvalidMenuID,           {{0x45, 0x53, 0x44, 0xBDFB, 0xD3C3}, {0x45, 0x53, 0x44, 0x20, 0x44, 0x69, 0x73, 0x61, 0x62, 0x6C, 0x65}},
   ESDSetting_Special, ESDSetting_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
 
-  //-ESD禁止动作-
-  {1,             InvalidMenuID,         InvalidMenuID,           {0x45, 0x53, 0x44, 0xBDFB, 0xD6B9, 0xB6AF, 0xD7F7},
+  //-ESD禁止动作(ESD Hold)-
+  {1,             InvalidMenuID,         InvalidMenuID,           {{0x45, 0x53, 0x44, 0xBDFB, 0xD6B9, 0xB6AF, 0xD7F7}, {0x45, 0x53, 0x44, 0x20, 0x48, 0x6F, 0x6C, 0x64}},
   ESDSetting_Special, ESDSetting_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
 
-  //-ESD打开阀门-
-  {2,             InvalidMenuID,         InvalidMenuID,           {0x45, 0x53, 0x44, 0xB4F2, 0xBFAA, 0xB7A7, 0xC3C5},
+  //-ESD打开阀门(ESD Open)-
+  {2,             InvalidMenuID,         InvalidMenuID,           {{0x45, 0x53, 0x44, 0xB4F2, 0xBFAA, 0xB7A7, 0xC3C5}, {0x45, 0x53, 0x44, 0x20, 0x4F, 0x70, 0x65, 0x6E}},
   ESDSetting_Special, ESDSetting_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
 
-  //-ESD关闭阀门-
-  {3,             InvalidMenuID,         InvalidMenuID,           {0x45, 0x53, 0x44, 0xB9D8, 0xB1D5, 0xB7A7, 0xC3C5},
+  //-ESD关闭阀门(ESD Close)-
+  {3,             InvalidMenuID,         InvalidMenuID,           {{0x45, 0x53, 0x44, 0xB9D8, 0xB1D5, 0xB7A7, 0xC3C5}, {0x45, 0x53, 0x44, 0x20, 0x43, 0x6C, 0x6F, 0x73, 0x65}},
   ESDSetting_Special, ESDSetting_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
 
-  //-ESD到中间位-
-  {4,             InvalidMenuID,         InvalidMenuID,           {0x45, 0x53, 0x44, 0xB5BD, 0xD6D0, 0xBCE4, 0xCEBB},
+  //-ESD到中间位(ESD Mediate)-
+  {4,             InvalidMenuID,         InvalidMenuID,           {{0x45, 0x53, 0x44, 0xB5BD, 0xD6D0, 0xBCE4, 0xCEBB}, {0x45, 0x53, 0x44, 0x20, 0x4D, 0x65, 0x64, 0x69, 0x61, 0x74, 0x65}},
   ESDSetting_Special, ESDSetting_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
 
-  //-返回上级-
-  {5,             Page_InternalPara_ID,  InvalidMenuID,           {0xB7B5, 0xBBD8, 0xC9CF, 0xBCB6},
+  //-返回上级(Return)-
+  {5,             Page_InternalPara_ID,  InvalidMenuID,           {{0xB7B5, 0xBBD8, 0xC9CF, 0xBCB6}, {0x52, 0x65, 0x74, 0x75, 0x72, 0x6E}},
   Dummy_Special, StandardMenu_Back2Parent, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
 };
 
@@ -1030,7 +1031,7 @@ void ShowNumbers(unsigned int Value, int BitCount, int DecimalBitCount, int X_Of
     unsigned char QianValue = 0;
     unsigned char WanValue = 0;
 
-    ClearBuf((unsigned char *)&LongCode, sizeof(LongCode));
+    ClearLongCode();
     GetSingleNumber(Value, &GeValue, &ShiValue, &BaiValue, &QianValue, &WanValue);
 
     if (BitCount > 5)    //-至多显示十进制的5位数-
@@ -1181,27 +1182,71 @@ void ShowInc_Dec(int LineIndex)
     if (LineIndex == 2)
     {
         DisplayBufIndex= 0;
-        //-打开一下:增大-
-        LongCode[Index++] = 0xB4F2;
-        LongCode[Index++] = 0xBFAA;
-        LongCode[Index++] = 0xD2BB;
-        LongCode[Index++] = 0xCFC2;
-        LongCode[Index++] = 0x3A;
-        LongCode[Index++] = 0xD4F6;
-        LongCode[Index++] = 0xB4F3;
+
+        if (Device.Para.LanguageType == Language_CN)
+        {
+            //-打开一下:增大-
+            LongCode[Index++] = 0xB4F2;
+            LongCode[Index++] = 0xBFAA;
+            LongCode[Index++] = 0xD2BB;
+            LongCode[Index++] = 0xCFC2;
+            LongCode[Index++] = 0x3A;
+            LongCode[Index++] = 0xD4F6;
+            LongCode[Index++] = 0xB4F3;
+        }
+        else
+        {
+            //-Increase:Open-
+            LongCode[Index++] = 0x49;
+            LongCode[Index++] = 0x6E;
+            LongCode[Index++] = 0x63;
+            LongCode[Index++] = 0x72;
+            LongCode[Index++] = 0x65;
+            LongCode[Index++] = 0x61;
+            LongCode[Index++] = 0x73;
+            LongCode[Index++] = 0x65;
+            LongCode[Index++] = 0x3A;
+            LongCode[Index++] = 0x4F;
+            LongCode[Index++] = 0x70;
+            LongCode[Index++] = 0x65;
+            LongCode[Index++] = 0x6E;
+
+        }
         ShowBlock(&LongCode[0], Index, DisplayBufIndex);
     }
     else if (LineIndex == 3)
     {
         DisplayBufIndex= 0;
-        //-关闭一下:减小-
-        LongCode[Index++] = 0xB9D8;
-        LongCode[Index++] = 0xB1D5;
-        LongCode[Index++] = 0xD2BB;
-        LongCode[Index++] = 0xCFC2;
-        LongCode[Index++] = 0x3A;
-        LongCode[Index++] = 0xBCF5;
-        LongCode[Index++] = 0xD0A1;
+        
+        if (Device.Para.LanguageType == Language_CN)
+        {
+            //-关闭一下:减小-
+            LongCode[Index++] = 0xB9D8;
+            LongCode[Index++] = 0xB1D5;
+            LongCode[Index++] = 0xD2BB;
+            LongCode[Index++] = 0xCFC2;
+            LongCode[Index++] = 0x3A;
+            LongCode[Index++] = 0xBCF5;
+            LongCode[Index++] = 0xD0A1;
+        }
+        else
+        {
+            //-Decrease:Close-
+            LongCode[Index++] = 0x44;
+            LongCode[Index++] = 0x65;
+            LongCode[Index++] = 0x63;
+            LongCode[Index++] = 0x72;
+            LongCode[Index++] = 0x65;
+            LongCode[Index++] = 0x61;
+            LongCode[Index++] = 0x73;
+            LongCode[Index++] = 0x65;
+            LongCode[Index++] = 0x3A;
+            LongCode[Index++] = 0x43;
+            LongCode[Index++] = 0x6C;
+            LongCode[Index++] = 0x6F;
+            LongCode[Index++] = 0x73;
+            LongCode[Index++] = 0x65;
+        }
         ShowBlock(&LongCode[0], Index, DisplayBufIndex);
     }
 }
@@ -1217,14 +1262,35 @@ void ShowInc_Dec(int LineIndex)
 void ShowReservedItem(int X_Offset)
 {
     int Index = 0;
-    unsigned int Code[4] = {0};
-   
-    Code[Index++] = 0xB1A3;
-    Code[Index++] = 0xC1F4;
-    Code[Index++] = 0xCFEE;
-    Code[Index++] = 0xC4BF;
+    
+    ClearLongCode();
+    if (Device.Para.LanguageType == Language_CN)
+    {
+        //-保留项目-
+        LongCode[Index++] = 0xB1A3;
+        LongCode[Index++] = 0xC1F4;
+        LongCode[Index++] = 0xCFEE;
+        LongCode[Index++] = 0xC4BF;
+    }
+    else
+    {
+        //-Reserved Item-
+        LongCode[Index++] = 0x52;
+        LongCode[Index++] = 0x65;
+        LongCode[Index++] = 0x73;
+        LongCode[Index++] = 0x65;
+        LongCode[Index++] = 0x72;
+        LongCode[Index++] = 0x76;
+        LongCode[Index++] = 0x65;
+        LongCode[Index++] = 0x64;
+        LongCode[Index++] = 0x20;
+        LongCode[Index++] = 0x49;
+        LongCode[Index++] = 0x74;
+        LongCode[Index++] = 0x65;
+        LongCode[Index++] = 0x6D;
+    }
 
-    ShowBlock(&Code[0], Index, X_Offset);
+    ShowBlock(&LongCode[0], Index, X_Offset);
 }
 
 
@@ -1258,8 +1324,6 @@ void NormalPage_Special0(const MenuStructure *pMenu, MenuPara *pMenuPara, int Li
     int LineIndex = 0;
     int DisplayBufIndex = 0;
 
-    unsigned int  Code[4] = {0};
-
     int i = 0;
     int j = 0;
     int Index = 0;
@@ -1271,52 +1335,123 @@ void NormalPage_Special0(const MenuStructure *pMenu, MenuPara *pMenuPara, int Li
     /*--------------------------------第一行------------------------------------*/
     LineIndex = 0;
     ClearBuf(&g_DisplayBuf[0], Display_Buf_Size);
-
-    ClearBuf((unsigned char *)&Code[0], sizeof(Code));
+    ClearLongCode();
     if (Valve.Status.StatusBits.Opening == 1)
     {
         IsMoving = 1; 
 
-        Code[0] = 0xB4F2;    //-打-
-        Code[1] = 0xBFAA;    //-开-
-        Code[2] = 0xD6D0;    //-中-
+        if (Device.Para.LanguageType == Language_CN)
+        {
+            LongCode[Index++] = 0xB4F2;    //-打-
+            LongCode[Index++] = 0xBFAA;    //-开-
+            LongCode[Index++] = 0xD6D0;    //-中-
+        }
+        else
+        {
+            //-Opening-
+            LongCode[Index++] = 0x4F;    
+            LongCode[Index++] = 0x70;    
+            LongCode[Index++] = 0x65;   
+            LongCode[Index++] = 0x6E;    
+            LongCode[Index++] = 0x69;    
+            LongCode[Index++] = 0x6E; 
+            LongCode[Index++] = 0x67;    
+        }
     }
     else if(Valve.Status.StatusBits.Shutting == 1)
     {
         IsMoving = 1; 
 
-        Code[0] = 0xB9D8;    //-关-
-        Code[1] = 0xB1D5;    //-闭-
-        Code[2] = 0xD6D0;    //-中-
+        if (Device.Para.LanguageType == Language_CN)
+        {
+            LongCode[Index++] = 0xB9D8;    //-关-
+            LongCode[Index++] = 0xB1D5;    //-闭-
+            LongCode[Index++] = 0xD6D0;    //-中-
+        }
+        else
+        {
+            //-Closing-
+            LongCode[Index++] = 0x43;    
+            LongCode[Index++] = 0x6C;    
+            LongCode[Index++] = 0x6F;   
+            LongCode[Index++] = 0x73;    
+            LongCode[Index++] = 0x69;    
+            LongCode[Index++] = 0x6E; 
+            LongCode[Index++] = 0x67; 
+        }
     }
     else if (Valve.Status.StatusBits.OpenLimit == 1)
     {
-        Code[0] = 0xBFAA;    //-开-
-        Code[1] = 0xB5BD;    //-到-
-        Code[2] = 0xCEBB;    //-位-     
+        if (Device.Para.LanguageType == Language_CN)
+        {
+            LongCode[Index++] = 0xBFAA;    //-开-
+            LongCode[Index++] = 0xB5BD;    //-到-
+            LongCode[Index++] = 0xCEBB;    //-位-    
+        } 
+        else
+        {
+            //-Open-OK-
+            LongCode[Index++] = 0x4F;    
+            LongCode[Index++] = 0x70;    
+            LongCode[Index++] = 0x65;   
+            LongCode[Index++] = 0x6E;    
+            LongCode[Index++] = 0x2D;    
+            LongCode[Index++] = 0x4F; 
+            LongCode[Index++] = 0x4B; 
+        }
     }
     else if (Valve.Status.StatusBits.ShutLimit == 1)
     {
-        Code[0] = 0xB9D8;    //-关-
-        Code[1] = 0xB5BD;    //-到-
-        Code[2] = 0xCEBB;    //-位-
+        if (Device.Para.LanguageType == Language_CN)
+        {
+            LongCode[Index++] = 0xB9D8;    //-关-
+            LongCode[Index++] = 0xB5BD;    //-到-
+            LongCode[Index++] = 0xCEBB;    //-位-
+        }
+        else
+        {
+            //-Close-OK-
+            LongCode[Index++] = 0x43;    
+            LongCode[Index++] = 0x6C;    
+            LongCode[Index++] = 0x6F;   
+            LongCode[Index++] = 0x73;    
+            LongCode[Index++] = 0x65;    
+            LongCode[Index++] = 0x2D; 
+            LongCode[Index++] = 0x4F; 
+            LongCode[Index++] = 0x4B; 
+        }
     }
     else 
     {
     }
 
     DisplayBufIndex = 0;
-    ShowBlock(&Code[0], 3, DisplayBufIndex);
+    ShowBlock(&LongCode[0], Index, DisplayBufIndex);
 
     /*-右上角部分显示优先级:严重错误、手轮手动、紧急状态、方向错误
       -*/
-    ClearBuf((unsigned char *)&LongCode[0], sizeof(LongCode));
+    Index = 0;
+    ClearLongCode();
     if (F_Disconnect == 1)
     {
-        LongCode[Index++] = 0xCDA8;    //-通-
-        LongCode[Index++] = 0xD1B6;    //-讯-
-        LongCode[Index++] = 0xB6CF;    //-断-
-        LongCode[Index++] = 0xC1AC;    //-连-
+        if (Device.Para.LanguageType == Language_CN)
+        {
+            LongCode[Index++] = 0xCDA8;    //-通-
+            LongCode[Index++] = 0xD1B6;    //-讯-
+            LongCode[Index++] = 0xB6CF;    //-断-
+            LongCode[Index++] = 0xC1AC;    //-连-
+        }
+        else
+        {
+            //-No Comm-
+            LongCode[Index++] = 0x4E;    
+            LongCode[Index++] = 0x6F;    
+            LongCode[Index++] = 0x20;   
+            LongCode[Index++] = 0x43;    
+            LongCode[Index++] = 0x6F;    
+            LongCode[Index++] = 0x6D; 
+            LongCode[Index++] = 0x6D; 
+        }
     }
     else if (Device.Error.ErrorByte != 0)
     {
@@ -1324,17 +1459,45 @@ void NormalPage_Special0(const MenuStructure *pMenu, MenuPara *pMenuPara, int Li
     }
     else if (Device.CurCommMode.CommModeBits.Manual == 1)
     {
-        LongCode[Index++] = 0xCAD6;    //-手-
-        LongCode[Index++] = 0xC2D6;    //-轮-
-        LongCode[Index++] = 0xCAD6;    //-手-
-        LongCode[Index++] = 0xC2D6;    //-动-
+        if (Device.Para.LanguageType == Language_CN)
+        {
+            LongCode[Index++] = 0xCAD6;    //-手-
+            LongCode[Index++] = 0xC2D6;    //-轮-
+            LongCode[Index++] = 0xCAD6;    //-手-
+            LongCode[Index++] = 0xC2D6;    //-动-
+        }
+        else
+        {
+            //-Manual-
+            LongCode[Index++] = 0x4D;    
+            LongCode[Index++] = 0x61;    
+            LongCode[Index++] = 0x6E;   
+            LongCode[Index++] = 0x75;    
+            LongCode[Index++] = 0x61;    
+            LongCode[Index++] = 0x6C; 
+        }
     }
     else if (Device.Status.ESDStatus == ESDStatus_Valid)
     {
-        LongCode[Index++] = 0xBDF4;    //-紧-
-        LongCode[Index++] = 0xBCB1;    //-急-
-        LongCode[Index++] = 0xD7B4;    //-状-
-        LongCode[Index++] = 0xCCAC;    //-态-
+        if (Device.Para.LanguageType == Language_CN)
+        {
+            LongCode[Index++] = 0xBDF4;    //-紧-
+            LongCode[Index++] = 0xBCB1;    //-急-
+            LongCode[Index++] = 0xD7B4;    //-状-
+            LongCode[Index++] = 0xCCAC;    //-态-
+        }
+        else
+        {
+            //-Exigency-
+            LongCode[Index++] = 0x45;    
+            LongCode[Index++] = 0x78;    
+            LongCode[Index++] = 0x69;   
+            LongCode[Index++] = 0x67;    
+            LongCode[Index++] = 0x65;    
+            LongCode[Index++] = 0x6E; 
+            LongCode[Index++] = 0x63;    
+            LongCode[Index++] = 0x79; 
+        }
     }
     else if (Valve.Error.ErrorByte != 0)
     {
@@ -1418,10 +1581,10 @@ void NormalPage_Special0(const MenuStructure *pMenu, MenuPara *pMenuPara, int Li
 void NormalPage_Special1(const MenuStructure *pMenu, MenuPara *pMenuPara, int Line)
 {
     int i = 0;
+    int Index = 0;
 
     int LineIndex = 0;
     int DisplayBufIndex = 0;
-    unsigned int  Code[4] = {0};
     signed int CurOpening = 0;
     
     unsigned char DummyData = 0;
@@ -1487,26 +1650,54 @@ void NormalPage_Special1(const MenuStructure *pMenu, MenuPara *pMenuPara, int Li
     }
 
     //-----------丢信/目标-----------------
-    ClearBuf((unsigned char *)&Code[0], sizeof(Code));
+    ClearLongCode();
     if ((Device.CurCommMode.CommModeBits.Remote == 1) && (Device.Para.RemoteType == RemoteType_Regulate))
     {
         if (Valve.Status.StatusBits.NoSignal == 1)
         {
-            Code[0] = 0xB6AA;    //-丢-  
-            Code[1] = 0xD0C5;    //-信-  
+            if (Device.Para.LanguageType == Language_CN)
+            {
+                DisplayBufIndex = 96;
+                LongCode[Index++] = 0xB6AA;    //-丢-  
+                LongCode[Index++] = 0xD0C5;    //-信-  
+            }
+            else
+            {
+                DisplayBufIndex = 80;
+                //-No SV-
+                LongCode[Index++] = 0x4E;     
+                LongCode[Index++] = 0x6F; 
+                LongCode[Index++] = 0x20;     
+                LongCode[Index++] = 0x53;
+                LongCode[Index++] = 0x56;       
+            }
         }
         else
         {
-            Code[0] = 0xC4BF;    //-目-  
-            Code[1] = 0xB1EA;    //-标-  
+            if (Device.Para.LanguageType == Language_CN)
+            {
+                DisplayBufIndex = 96;
+                LongCode[Index++] = 0xC4BF;    //-目-  
+                LongCode[Index++] = 0xB1EA;    //-标-  
+            }
+            else
+            {
+                DisplayBufIndex = 80;
+                //-Target-
+                LongCode[Index++] = 0x54;     
+                LongCode[Index++] = 0x61; 
+                LongCode[Index++] = 0x72;     
+                LongCode[Index++] = 0x67;
+                LongCode[Index++] = 0x65;     
+                LongCode[Index++] = 0x74; 
+            }
         }
     }
     else
     {
     }
 
-    DisplayBufIndex = 96;
-    ShowBlock(&Code[0], 2, DisplayBufIndex);
+    ShowBlock(&LongCode[0], Index, DisplayBufIndex);
 
     LcdRefresh(LineIndex);
 }
@@ -1610,7 +1801,7 @@ void NormalPage_Special2(const MenuStructure *pMenu, MenuPara *pMenuPara, int Li
         {
             if (BaiValue == 0)
             {
-                Code[0] = 0xA3A0;              //-空格-  
+                Code[0] = Space;              //-空格-  
             } 
             else
             {
@@ -1618,7 +1809,7 @@ void NormalPage_Special2(const MenuStructure *pMenu, MenuPara *pMenuPara, int Li
             }
             if ((ShiValue == 0) && (BaiValue == 0))
             {
-                Code[1] = 0xA3A0;              //-空格-  
+                Code[1] = Space;              //-空格-  
             } 
             else
             {
@@ -1647,24 +1838,41 @@ void NormalPage_Special2(const MenuStructure *pMenu, MenuPara *pMenuPara, int Li
 *******************************************************************************/
 void NormalPage_Special3(const MenuStructure *pMenu, MenuPara *pMenuPara, int Line)
 {
+    int Index = 0;
     int LineIndex = 0;
     int DisplayBufIndex = 0;
     unsigned char RemoteMode = 0xFF;
-
-    unsigned int  Code[4] = {0};
 
     /*--------------------------------第四行------------------------------------*/
     LineIndex = 3;  
     ClearBuf(&g_DisplayBuf[0], Display_Buf_Size);   
 
-    ClearBuf((unsigned char *)&Code[0], sizeof(Code));
+    ClearLongCode();
     switch(Device.WorkMode.CurWorkMode)
     {
     case 0:
-        Code[0] = 0xD4B6;    //-远-  
-        Code[1] = 0xB3CC;    //-程-  
-        Code[2] = 0xCDA8;    //-通-  
-        Code[3] = 0xD0C5;    //-信- 
+        if (Device.Para.LanguageType == Language_CN)
+        {
+            LongCode[Index++] = 0xD4B6;    //-远-  
+            LongCode[Index++] = 0xB3CC;    //-程-  
+            LongCode[Index++] = 0xCDA8;    //-通-  
+            LongCode[Index++] = 0xD0C5;    //-信- 
+        }
+        else
+        {
+            //-Remote(Bus)-
+            LongCode[Index++] = 0x52;
+            LongCode[Index++] = 0x65;
+            LongCode[Index++] = 0x6D;
+            LongCode[Index++] = 0x6F;
+            LongCode[Index++] = 0x74;
+            LongCode[Index++] = 0x65;
+            LongCode[Index++] = 0x28;
+            LongCode[Index++] = 0x42;
+            LongCode[Index++] = 0x75;
+            LongCode[Index++] = 0x73;
+            LongCode[Index++] = 0x29;
+        }
         break;
     case 1:
         if ((Valve.Status.StatusBits.NoSignal == 1) && (Device.Para.RemoteANMode == RemoteANMode_NoSigKeep))
@@ -1673,10 +1881,30 @@ void NormalPage_Special3(const MenuStructure *pMenu, MenuPara *pMenuPara, int Li
         }
         else
         {
-            Code[0] = 0xD4B6;    //-远-  
-            Code[1] = 0xB3CC;    //-程-  
-            Code[2] = 0xC4A3;    //-模-  
-            Code[3] = 0xC4E2;    //-拟- 
+            if (Device.Para.LanguageType == Language_CN)
+            {
+                LongCode[Index++] = 0xD4B6;    //-远-  
+                LongCode[Index++] = 0xB3CC;    //-程-  
+                LongCode[Index++] = 0xC4A3;    //-模-  
+                LongCode[Index++] = 0xC4E2;    //-拟- 
+            }
+            else
+            {
+                //-Remote(Auto)-
+                LongCode[Index++] = 0x52;
+                LongCode[Index++] = 0x65;
+                LongCode[Index++] = 0x6D;
+                LongCode[Index++] = 0x6F;
+                LongCode[Index++] = 0x74;
+                LongCode[Index++] = 0x65;
+                LongCode[Index++] = 0x20;
+                LongCode[Index++] = 0x28;
+                LongCode[Index++] = 0x41;
+                LongCode[Index++] = 0x75;
+                LongCode[Index++] = 0x74;
+                LongCode[Index++] = 0x6F;
+                LongCode[Index++] = 0x29;
+            }
         }
         break;
     case 2:
@@ -1689,22 +1917,67 @@ void NormalPage_Special3(const MenuStructure *pMenu, MenuPara *pMenuPara, int Li
         RemoteMode = RemoteIOMode_BiPos;
         break;
     case 5:
-        Code[0] = 0xCFD6;    //-现-  
-        Code[1] = 0xB3A1;    //-场-  
-        Code[2] = 0xB5E3;    //-点-  
-        Code[3] = 0xB6AF;    //-动- 
+        if (Device.Para.LanguageType == Language_CN)
+        {
+            LongCode[Index++] = 0xCFD6;    //-现-  
+            LongCode[Index++] = 0xB3A1;    //-场-  
+            LongCode[Index++] = 0xB5E3;    //-点-  
+            LongCode[Index++] = 0xB6AF;    //-动- 
+        }
+        else
+        {
+            //-Local(LTS)-
+            LongCode[Index++] = 0x4C;
+            LongCode[Index++] = 0x6F;
+            LongCode[Index++] = 0x63;
+            LongCode[Index++] = 0x61;
+            LongCode[Index++] = 0x6C;
+            LongCode[Index++] = 0x28;
+            LongCode[Index++] = 0x4C;
+            LongCode[Index++] = 0x54;
+            LongCode[Index++] = 0x53;
+            LongCode[Index++] = 0x29;
+        }
         break;
     case 6:
-        Code[0] = 0xCFD6;    //-现-  
-        Code[1] = 0xB3A1;    //-场-  
-        Code[2] = 0xB1A3;    //-保-  
-        Code[3] = 0xB3D6;    //-持- 
+        if (Device.Para.LanguageType == Language_CN)
+        {
+            LongCode[Index++] = 0xCFD6;    //-现-  
+            LongCode[Index++] = 0xB3A1;    //-场-  
+            LongCode[Index++] = 0xB1A3;    //-保-  
+            LongCode[Index++] = 0xB3D6;    //-持- 
+        }
+        else
+        {
+            //-Local(STS)-
+            LongCode[Index++] = 0x4C;
+            LongCode[Index++] = 0x6F;
+            LongCode[Index++] = 0x63;
+            LongCode[Index++] = 0x61;
+            LongCode[Index++] = 0x6C;
+            LongCode[Index++] = 0x28;
+            LongCode[Index++] = 0x53;
+            LongCode[Index++] = 0x54;
+            LongCode[Index++] = 0x53;
+            LongCode[Index++] = 0x29;
+        }
         break;
     case 7:
-        Code[0] = 0xCDA3;    //-停-  
-        Code[1] = Space;
-        Code[2] = Space;
-        Code[3] = 0xD6B9;    //-止-  
+        if (Device.Para.LanguageType == Language_CN)
+        {
+            LongCode[Index++] = 0xCDA3;    //-停-  
+            LongCode[Index++] = Space;
+            LongCode[Index++] = Space;
+            LongCode[Index++] = 0xD6B9;    //-止-  
+        }
+        else
+        {
+            //-Stop-
+            LongCode[Index++] = 0x73;
+            LongCode[Index++] = 0x74;
+            LongCode[Index++] = 0x6F;
+            LongCode[Index++] = 0x70;
+        }
         break;
     default:
         break;
@@ -1713,28 +1986,82 @@ void NormalPage_Special3(const MenuStructure *pMenu, MenuPara *pMenuPara, int Li
     switch(RemoteMode)
     {
     case RemoteIOMode_Jog:
-        Code[0] = 0xD4B6;    //-远-  
-        Code[1] = 0xB3CC;    //-程-  
-        Code[2] = 0xB5E3;    //-点-  
-        Code[3] = 0xB6AF;    //-动- 
+        if (Device.Para.LanguageType == Language_CN)
+        {
+            LongCode[Index++] = 0xD4B6;    //-远-  
+            LongCode[Index++] = 0xB3CC;    //-程-  
+            LongCode[Index++] = 0xB5E3;    //-点-  
+            LongCode[Index++] = 0xB6AF;    //-动- 
+        }
+        else
+        {
+            //-Remote(LTS)-
+            LongCode[Index++] = 0x52;
+            LongCode[Index++] = 0x65;
+            LongCode[Index++] = 0x6D;
+            LongCode[Index++] = 0x6F;
+            LongCode[Index++] = 0x74;
+            LongCode[Index++] = 0x65;
+            LongCode[Index++] = 0x28;
+            LongCode[Index++] = 0x4C;
+            LongCode[Index++] = 0x54;
+            LongCode[Index++] = 0x53;
+            LongCode[Index++] = 0x29;
+        }
         break;
 
     case RemoteIOMode_Hold:
     case RemoteIOMode_HoldNormallyOpen:
     case RemoteIOMode_HoldNormallyShut:
-        Code[0] = 0xD4B6;    //-远-  
-        Code[1] = 0xB3CC;    //-程-  
-        Code[2] = 0xB1A3;    //-保-  
-        Code[3] = 0xB3D6;    //-持- 
+        if (Device.Para.LanguageType == Language_CN)
+        {
+            LongCode[Index++] = 0xD4B6;    //-远-  
+            LongCode[Index++] = 0xB3CC;    //-程-  
+            LongCode[Index++] = 0xB1A3;    //-保-  
+            LongCode[Index++] = 0xB3D6;    //-持- 
+        }
+        else
+        {
+            //-Remote(STS)-
+            LongCode[Index++] = 0x52;
+            LongCode[Index++] = 0x65;
+            LongCode[Index++] = 0x6D;
+            LongCode[Index++] = 0x6F;
+            LongCode[Index++] = 0x74;
+            LongCode[Index++] = 0x65;
+            LongCode[Index++] = 0x28;
+            LongCode[Index++] = 0x53;
+            LongCode[Index++] = 0x54;
+            LongCode[Index++] = 0x53;
+            LongCode[Index++] = 0x29;
+        }
         break;
 
     case RemoteIOMode_BiPos:
     case RemoteIOMode_SignalOffNoOn:
     case RemoteIOMode_SignalOnNoOff:
-        Code[0] = 0xD4B6;    //-远-  
-        Code[1] = 0xB3CC;    //-程-  
-        Code[2] = 0xCBAB;    //-双-  
-        Code[3] = 0xCEBB;    //-位- 
+        if (Device.Para.LanguageType == Language_CN)
+        {
+            LongCode[Index++] = 0xD4B6;    //-远-  
+            LongCode[Index++] = 0xB3CC;    //-程-  
+            LongCode[Index++] = 0xCBAB;    //-双-  
+            LongCode[Index++] = 0xCEBB;    //-位- 
+        }
+        else
+        {
+            //-Remote(I/O)-
+            LongCode[Index++] = 0x52;
+            LongCode[Index++] = 0x65;
+            LongCode[Index++] = 0x6D;
+            LongCode[Index++] = 0x6F;
+            LongCode[Index++] = 0x74;
+            LongCode[Index++] = 0x65;
+            LongCode[Index++] = 0x28;
+            LongCode[Index++] = 0x49;
+            LongCode[Index++] = 0x2F;
+            LongCode[Index++] = 0x4F;
+            LongCode[Index++] = 0x29;
+        }
         break;
 
     default:
@@ -1744,7 +2071,7 @@ void NormalPage_Special3(const MenuStructure *pMenu, MenuPara *pMenuPara, int Li
    
     DisplayBufIndex = 32;
  
-    ShowBlock(&Code[0], 4, DisplayBufIndex);
+    ShowBlock(&LongCode[0], Index, DisplayBufIndex);
 
     LcdRefresh(LineIndex);
 }
@@ -1807,7 +2134,16 @@ void StandardMenu_Reset0(MenuPara *pMenuPara)
 *******************************************************************************/
 void StandardMenu_Reset1(MenuPara *pMenuPara)
 {
-    pMenuPara->ColumnIndex = 3;
+    if (Device.Para.LanguageType == Language_CN)
+    {
+        pMenuPara->ColumnIndex = 3;
+        pMenuPara->ColumnReverseUnit = 4;
+    }
+    else
+    {
+        pMenuPara->ColumnIndex = 3;
+        pMenuPara->ColumnReverseUnit = 2;
+    }
 }
 
 
@@ -1887,7 +2223,7 @@ void AdjustZeroFull_Special(const MenuStructure *pMenu, MenuPara *pMenuPara, int
     int Index = 0;
     int DisplayBufIndex = 0;
 
-    ClearBuf((unsigned char *)&LongCode[0], sizeof(LongCode));
+    ClearLongCode();
     if (Device.Flag.FlagBits.IsInLocalAdjust == 1)
     {
         pMenuPara->ColumnReverseSwitch = Disable;
@@ -1895,58 +2231,153 @@ void AdjustZeroFull_Special(const MenuStructure *pMenu, MenuPara *pMenuPara, int
 
         if (LineIndex == 0)
         {
-            DisplayBufIndex= 16;
-            //-当前位置#xxxx-
-            LongCode[Index++] = 0xB5B1;
-            LongCode[Index++] = 0xC7B0;
-            LongCode[Index++] = 0xCEBB;
-            LongCode[Index++] = 0xD6C3;
-            LongCode[Index++] = 0x23;
+            if (Device.Para.LanguageType == Language_CN)
+            {
+                DisplayBufIndex= 0;
+                //-当前位置#xxxx-
+                LongCode[Index++] = Space;
+                LongCode[Index++] = Space;
+                LongCode[Index++] = 0xB5B1;
+                LongCode[Index++] = 0xC7B0;
+                LongCode[Index++] = 0xCEBB;
+                LongCode[Index++] = 0xD6C3;
+                LongCode[Index++] = 0x23;
+            }
+            else
+            { 
+                DisplayBufIndex= 0;
+                //-POS value #-
+                LongCode[Index++] = 0x50;
+                LongCode[Index++] = 0x4F;
+                LongCode[Index++] = 0x53;
+                LongCode[Index++] = 0x20;
+                LongCode[Index++] = 0x76;
+                LongCode[Index++] = 0x61;
+                LongCode[Index++] = 0x6C;
+                LongCode[Index++] = 0x75;
+                LongCode[Index++] = 0x65;
+                LongCode[Index++] = 0x20;
+                LongCode[Index++] = 0x23;
+
+            }
             ShowBlock(&LongCode[0], Index, DisplayBufIndex);
 
-            DisplayBufIndex += 72;
+            DisplayBufIndex += 88;
             ShowNumbers(Valve.MiscInfo.PositionValue, 5, 0, DisplayBufIndex, 1);
         }
         else if (LineIndex == 1)
         {
             DisplayBufIndex= 0;
-            //-操作旋钮可无限位-
-            LongCode[Index++] = 0xB2D9;
-            LongCode[Index++] = 0xD7F7;
-            LongCode[Index++] = 0xD0FD;
-            LongCode[Index++] = 0xC5A5;
-            LongCode[Index++] = 0xBFC9;
-            LongCode[Index++] = 0xCEDE;
-            LongCode[Index++] = 0xCFDE;
-            LongCode[Index++] = 0xCEBB;
+
+            if (Device.Para.LanguageType == Language_CN)
+            {
+                //-操作旋钮可无限位-
+                LongCode[Index++] = 0xB2D9;
+                LongCode[Index++] = 0xD7F7;
+                LongCode[Index++] = 0xD0FD;
+                LongCode[Index++] = 0xC5A5;
+                LongCode[Index++] = 0xBFC9;
+                LongCode[Index++] = 0xCEDE;
+                LongCode[Index++] = 0xCFDE;
+                LongCode[Index++] = 0xCEBB;
+            }
+            else
+            {
+                //-Adjust by OPERA--
+                LongCode[Index++] = 0x41;
+                LongCode[Index++] = 0x64;
+                LongCode[Index++] = 0x6A;
+                LongCode[Index++] = 0x75;
+                LongCode[Index++] = 0x73;
+                LongCode[Index++] = 0x74;
+                LongCode[Index++] = 0x20;
+                LongCode[Index++] = 0x62;
+                LongCode[Index++] = 0x79;
+                LongCode[Index++] = 0x20;
+                LongCode[Index++] = 0x4F;
+                LongCode[Index++] = 0x50;
+                LongCode[Index++] = 0x45;
+                LongCode[Index++] = 0x52;
+                LongCode[Index++] = 0x41;
+                LongCode[Index++] = 0x54;
+            }
+
             ShowBlock(&LongCode[0], Index, DisplayBufIndex);
         }
         else if (LineIndex == 2)
         {
             DisplayBufIndex= 0;
-            //-调整阀门位置，返-
-            LongCode[Index++] = 0xB5F7;
-            LongCode[Index++] = 0xD5FB;
-            LongCode[Index++] = 0xB7A7;
-            LongCode[Index++] = 0xC3C5;
-            LongCode[Index++] = 0xCEBB;
-            LongCode[Index++] = 0xD6C3;
-            LongCode[Index++] = 0xA3AC;
-            LongCode[Index++] = 0xB7B5;
+
+            if (Device.Para.LanguageType == Language_CN)
+            {
+                //-调整阀门位置，返-
+                LongCode[Index++] = 0xB5F7;
+                LongCode[Index++] = 0xD5FB;
+                LongCode[Index++] = 0xB7A7;
+                LongCode[Index++] = 0xC3C5;
+                LongCode[Index++] = 0xCEBB;
+                LongCode[Index++] = 0xD6C3;
+                LongCode[Index++] = 0xA3AC;
+                LongCode[Index++] = 0xB7B5;
+            }
+            else
+            {
+                //-TE KNOB, Turn to-
+                LongCode[Index++] = 0x45;
+                LongCode[Index++] = 0x20;
+                LongCode[Index++] = 0x4B;
+                LongCode[Index++] = 0x4E;
+                LongCode[Index++] = 0x4F;
+                LongCode[Index++] = 0x42;
+                LongCode[Index++] = 0x2C;
+                LongCode[Index++] = 0x20;
+                LongCode[Index++] = 0x54;
+                LongCode[Index++] = 0x75;
+                LongCode[Index++] = 0x72;
+                LongCode[Index++] = 0x6E;
+                LongCode[Index++] = 0x20;
+                LongCode[Index++] = 0x74;
+                LongCode[Index++] = 0x6F;
+                LongCode[Index++] = 0x20;
+            }
             ShowBlock(&LongCode[0], Index, DisplayBufIndex);
         }
         else if (LineIndex == 3)
         {
             DisplayBufIndex= 0;
-            //-回停止位完成标定-
-            LongCode[Index++] = 0xBBD8;
-            LongCode[Index++] = 0xCDA3;
-            LongCode[Index++] = 0xD6B9;
-            LongCode[Index++] = 0xCEBB;
-            LongCode[Index++] = 0xCDEA;
-            LongCode[Index++] = 0xB3C9;
-            LongCode[Index++] = 0xB1EA;
-            LongCode[Index++] = 0xB6A8;
+
+            if (Device.Para.LanguageType == Language_CN)
+            {
+                //-回停止位完成标定-
+                LongCode[Index++] = 0xBBD8;
+                LongCode[Index++] = 0xCDA3;
+                LongCode[Index++] = 0xD6B9;
+                LongCode[Index++] = 0xCEBB;
+                LongCode[Index++] = 0xCDEA;
+                LongCode[Index++] = 0xB3C9;
+                LongCode[Index++] = 0xB1EA;
+                LongCode[Index++] = 0xB6A8;
+            }
+            else
+            {
+                //- STOP to confirm.-
+                LongCode[Index++] = 0x53;
+                LongCode[Index++] = 0x54;
+                LongCode[Index++] = 0x4F;
+                LongCode[Index++] = 0x50;
+                LongCode[Index++] = 0x20;
+                LongCode[Index++] = 0x74;
+                LongCode[Index++] = 0x6F;
+                LongCode[Index++] = 0x20;
+                LongCode[Index++] = 0x63;
+                LongCode[Index++] = 0x6F;
+                LongCode[Index++] = 0x6E;
+                LongCode[Index++] = 0x66;
+                LongCode[Index++] = 0x69;
+                LongCode[Index++] = 0x72;
+                LongCode[Index++] = 0x6D;
+                LongCode[Index++] = 0x2E;
+            }
             ShowBlock(&LongCode[0], Index, DisplayBufIndex);
         }
     }
@@ -2013,10 +2444,24 @@ void AdjustZeroFull_SetKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
 *******************************************************************************/
 void AdjustZeroFull_UpKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
 {
-    pMenuPara->ColumnIndex += 6;
-    if (pMenuPara->ColumnIndex > 9)
+    if (Device.Para.LanguageType == Language_CN)
     {
-        pMenuPara->ColumnIndex = 3;
+        pMenuPara->ColumnIndex -= 6;
+        if (pMenuPara->ColumnIndex < 3)
+        {
+            pMenuPara->ColumnIndex = 9;
+        }
+    }
+    else
+    {
+        pMenuPara->ColumnIndex -= 4;
+        pMenuPara->ColumnReverseUnit = 2;
+
+        if (pMenuPara->ColumnIndex < 3)
+        {
+            pMenuPara->ColumnIndex = 7;
+            pMenuPara->ColumnReverseUnit = 6;
+        }
     }
 }
 
@@ -2030,10 +2475,24 @@ void AdjustZeroFull_UpKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
 *******************************************************************************/
 void AdjustZeroFull_DownKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
 {
-    pMenuPara->ColumnIndex -= 6;
-    if (pMenuPara->ColumnIndex < 3)
+    if (Device.Para.LanguageType == Language_CN)
     {
-        pMenuPara->ColumnIndex = 9;
+        pMenuPara->ColumnIndex += 6;
+        if (pMenuPara->ColumnIndex > 9)
+        {
+            pMenuPara->ColumnIndex = 3;
+        }
+    }
+    else
+    {
+        pMenuPara->ColumnIndex += 4;
+        pMenuPara->ColumnReverseUnit = 6;
+
+        if (pMenuPara->ColumnIndex > 9)
+        {
+            pMenuPara->ColumnIndex = 3;
+            pMenuPara->ColumnReverseUnit = 2;
+        }
     }
 }
 
@@ -2085,12 +2544,26 @@ void LocalMode_Special(const MenuStructure *pMenu, MenuPara *pMenuPara, int Line
 
     if ((LineIndex == 0) && (Device.Para.LocalMode == LocalMode_Jog))
     {
-        DisplayBufIndex = 96;
+        if (Device.Para.LanguageType == Language_CN)
+        {
+            DisplayBufIndex = 96;
+        }
+        else
+        {
+            DisplayBufIndex = 64;
+        }
         ShowStar(DisplayBufIndex);
     }
     else if ((LineIndex == 1) && (Device.Para.LocalMode == LocalMode_Hold))
     {
-        DisplayBufIndex = 96;
+        if (Device.Para.LanguageType == Language_CN)
+        {
+            DisplayBufIndex = 96;
+        }
+        else
+        {
+            DisplayBufIndex = 64;
+        }
         ShowStar(DisplayBufIndex);
     }
 }
@@ -2131,7 +2604,14 @@ void RemoteIOMode_Special(const MenuStructure *pMenu, MenuPara *pMenuPara, int L
     {
         if (Device.Para.RemoteIOMode == RemoteIOMode_Jog)
         {
-            DisplayBufIndex = 96;
+            if (Device.Para.LanguageType == Language_CN)
+            {
+                DisplayBufIndex = 96;
+            }
+            else
+            {
+                DisplayBufIndex = 64;
+            }
             ShowStar(DisplayBufIndex);
         }
     }
@@ -2139,7 +2619,14 @@ void RemoteIOMode_Special(const MenuStructure *pMenu, MenuPara *pMenuPara, int L
     {
         if (Device.Para.RemoteIOMode == RemoteIOMode_HoldNormallyOpen)
         {
-            DisplayBufIndex = 112;
+            if (Device.Para.LanguageType == Language_CN)
+            {
+                DisplayBufIndex = 112;
+            }
+            else
+            {
+                DisplayBufIndex = 120;
+            }
             ShowStar(DisplayBufIndex);
         }
     }
@@ -2147,7 +2634,14 @@ void RemoteIOMode_Special(const MenuStructure *pMenu, MenuPara *pMenuPara, int L
     {
         if (Device.Para.RemoteIOMode == RemoteIOMode_HoldNormallyShut)
         {
-            DisplayBufIndex = 112;
+            if (Device.Para.LanguageType == Language_CN)
+            {
+                DisplayBufIndex = 112;
+            }
+            else
+            {
+                DisplayBufIndex = 120;
+            }
             ShowStar(DisplayBufIndex);
         }
     }
@@ -2155,7 +2649,14 @@ void RemoteIOMode_Special(const MenuStructure *pMenu, MenuPara *pMenuPara, int L
     {
         if (Device.Para.RemoteIOMode == RemoteIOMode_SignalOnNoOff)
         {
-            DisplayBufIndex = 96;
+            if (Device.Para.LanguageType == Language_CN)
+            {
+                DisplayBufIndex = 96;
+            }
+            else
+            {
+                DisplayBufIndex = 112;
+            }
             ShowStar(DisplayBufIndex);
         }
     }
@@ -2163,7 +2664,14 @@ void RemoteIOMode_Special(const MenuStructure *pMenu, MenuPara *pMenuPara, int L
     {
         if (Device.Para.RemoteIOMode == RemoteIOMode_SignalOffNoOn)
         {
-            DisplayBufIndex = 96;
+            if (Device.Para.LanguageType == Language_CN)
+            {
+                DisplayBufIndex = 96;
+            }
+            else
+            {
+                DisplayBufIndex = 112;
+            }
             ShowStar(DisplayBufIndex);
         }
     }
@@ -2215,22 +2723,50 @@ void RemoteANMode_Special(const MenuStructure *pMenu, MenuPara *pMenuPara, int L
 
     if ((LineIndex == 1) && (Device.Para.RemoteANMode == RemoteANMode_NoSigKeep))
     {
-        DisplayBufIndex = 64;
+        if (Device.Para.LanguageType == Language_CN)
+        {
+            DisplayBufIndex = 64;
+        }
+        else
+        {
+            DisplayBufIndex = 88;
+        }
         ShowStar(DisplayBufIndex);
     }
     else if ((LineIndex == 2) && (Device.Para.RemoteANMode == RemoteANMode_NoSigShut))
     {
-        DisplayBufIndex = 64;
+        if (Device.Para.LanguageType == Language_CN)
+        {
+            DisplayBufIndex = 64;
+        }
+        else
+        {
+            DisplayBufIndex = 96;
+        }
         ShowStar(DisplayBufIndex);
     }
     else if ((LineIndex == 3) && (Device.Para.RemoteANMode == RemoteANMode_NoSigMid))
     {
-        DisplayBufIndex = 64;
+        if (Device.Para.LanguageType == Language_CN)
+        {
+            DisplayBufIndex = 64;
+        }
+        else
+        {
+            DisplayBufIndex = 112;
+        }
         ShowStar(DisplayBufIndex);
     }
     else if ((LineIndex == 4) && (Device.Para.RemoteANMode == RemoteANMode_NoSigOpen))
     {
-        DisplayBufIndex = 64;
+        if (Device.Para.LanguageType == Language_CN)
+        {
+            DisplayBufIndex = 64;
+        }
+        else
+        {
+            DisplayBufIndex = 88;
+        }
         ShowStar(DisplayBufIndex);
     }
 }
@@ -2273,8 +2809,7 @@ void RemoteANMode_SetKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
 *******************************************************************************/
 void DeadZone_Special(const MenuStructure *pMenu, MenuPara *pMenuPara, int LineIndex)
 {
-    unsigned int Code[5] = {0};
-
+    int Index = 0;
     unsigned int  DeadZone = 0;
     int DisplayBufIndex = 0;
     
@@ -2306,12 +2841,41 @@ void DeadZone_Special(const MenuStructure *pMenu, MenuPara *pMenuPara, int LineI
         if (DeadZone < 5)
         {
             //-自适应-
-            Code[0] = 0xD7D4;
-            Code[1] = 0xCACA;
-            Code[2] = 0xD3A6;
-            DisplayBufIndex = 48;
+            ClearLongCode();
+            if (Device.Para.LanguageType == Language_CN)
+            {
+                DisplayBufIndex = 48;
+                LongCode[Index++] = 0xD7D4;
+                LongCode[Index++] = 0xCACA;
+                LongCode[Index++] = 0xD3A6;
+            }
+            else
+            {
+                DisplayBufIndex = 48;
+
+                if (Device.Flag.FlagBits.IsInLocalAdjust == 1)
+                {
+                    pMenuPara->ColumnReverseUnit = 10;
+                }
+                else
+                {
+                    pMenuPara->ColumnReverseUnit = 8;
+                }
+
+                //-Self-adpat-
+                LongCode[Index++] = 0x53;
+                LongCode[Index++] = 0x65;
+                LongCode[Index++] = 0x6C;
+                LongCode[Index++] = 0x66;
+                LongCode[Index++] = 0x2D;
+                LongCode[Index++] = 0x61;
+                LongCode[Index++] = 0x64;
+                LongCode[Index++] = 0x61;
+                LongCode[Index++] = 0x70;
+                LongCode[Index++] = 0x74;
+            }
     
-            ShowBlock(&Code[0], 5, DisplayBufIndex);
+            ShowBlock(&LongCode[0], Index, DisplayBufIndex);
         }
         else
         {
@@ -2320,8 +2884,8 @@ void DeadZone_Special(const MenuStructure *pMenu, MenuPara *pMenuPara, int LineI
             
             //-%-
             DisplayBufIndex += 32;
-            Code[0] = 0x25;
-            ShowBlock(&Code[0], 1, DisplayBufIndex);
+            LongCode[0] = 0x25;
+            ShowBlock(&LongCode[0], 1, DisplayBufIndex);
         }
     }
     else
@@ -2587,6 +3151,7 @@ void InternalPara_ESD_Special(const MenuStructure *pMenu, MenuPara *pMenuPara, i
 
     if (Device.Para.ESDDisplayEnable == ESDDisplay_Disable)
     {
+        ClearBuf(&g_DisplayBuf[0], sizeof(g_DisplayBuf));
         ShowReservedItem(0);
     }
 }
@@ -2631,15 +3196,38 @@ void AdjustOutput4_20mA_Special(const MenuStructure *pMenu, MenuPara *pMenuPara,
         if (LineIndex == 1)
         {
             DisplayBufIndex= 0;
-            //-至停止位返回上级-
-            LongCode[Index++] = 0xD6C1;
-            LongCode[Index++] = 0xCDA3;
-            LongCode[Index++] = 0xD6B9;
-            LongCode[Index++] = 0xCEBB;
-            LongCode[Index++] = 0xB7B5;
-            LongCode[Index++] = 0xBBD8;
-            LongCode[Index++] = 0xC9CF;
-            LongCode[Index++] = 0xBCB6;
+            if (Device.Para.LanguageType == Language_CN)
+            {
+                //-至停止位返回上级-
+                LongCode[Index++] = 0xD6C1;
+                LongCode[Index++] = 0xCDA3;
+                LongCode[Index++] = 0xD6B9;
+                LongCode[Index++] = 0xCEBB;
+                LongCode[Index++] = 0xB7B5;
+                LongCode[Index++] = 0xBBD8;
+                LongCode[Index++] = 0xC9CF;
+                LongCode[Index++] = 0xBCB6;
+            }
+            else
+            {
+                //--Back:Turn 2 STOP
+                LongCode[Index++] = 0x42;
+                LongCode[Index++] = 0x61;
+                LongCode[Index++] = 0x63;
+                LongCode[Index++] = 0x6B;
+                LongCode[Index++] = 0x3A;
+                LongCode[Index++] = 0x54;
+                LongCode[Index++] = 0x75;
+                LongCode[Index++] = 0x72;
+                LongCode[Index++] = 0x6E;
+                LongCode[Index++] = 0x20;
+                LongCode[Index++] = 0x32;
+                LongCode[Index++] = 0x20;
+                LongCode[Index++] = 0x53;
+                LongCode[Index++] = 0x54;
+                LongCode[Index++] = 0x4F;
+                LongCode[Index++] = 0x50;
+            }
             ShowBlock(&LongCode[0], Index, DisplayBufIndex);
         }
         else 
@@ -2747,7 +3335,7 @@ void AdjustInput4_20mA_Special(const MenuStructure *pMenu, MenuPara *pMenuPara, 
     GetSingleNumber(Valve.MiscInfo.In4_20mAADValue, &GeValue, &ShiValue, &BaiValue, &DummyData, &DummyData);
     if (BaiValue == 0)
     {
-        Code[0] = 0xA3A0;               //-空格-
+        Code[0] = Space;               //-空格-
     }
     else
     {
@@ -2814,11 +3402,7 @@ void AdjustInput4_20mA_SetKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
 *******************************************************************************/
 void AdjustInput4_20mA_UpKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
 {
-    pMenuPara->ColumnIndex += 6;
-    if (pMenuPara->ColumnIndex > 9)
-    {
-        pMenuPara->ColumnIndex = 3;
-    }
+    AdjustZeroFull_UpKey(pMenu, pMenuPara);
 }
 
 
@@ -2831,11 +3415,7 @@ void AdjustInput4_20mA_UpKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
 *******************************************************************************/
 void AdjustInput4_20mA_DownKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
 {
-    pMenuPara->ColumnIndex -= 6;
-    if (pMenuPara->ColumnIndex < 3)
-    {
-        pMenuPara->ColumnIndex = 9;
-    }
+    AdjustZeroFull_DownKey(pMenu, pMenuPara);
 }
 
 
@@ -2912,7 +3492,7 @@ void ShutCurrent_Special(const MenuStructure *pMenu, MenuPara *pMenuPara, int Li
             ShowNumbers(Device.Para.MaxShutCurrent, 3, 2, DisplayBufIndex, 0);
         }
 
-        ClearBuf((unsigned char *)&LongCode[0], sizeof(LongCode));
+        ClearLongCode();
         DisplayBufIndex += 32;
         LongCode[Index++] = 0x41;         //-A-
         ShowBlock(&LongCode[0], Index, DisplayBufIndex);
@@ -3000,7 +3580,7 @@ void OpenCurrent_Special(const MenuStructure *pMenu, MenuPara *pMenuPara, int Li
             ShowNumbers(Device.Para.MaxOpenCurrent, 3, 2, 48, 0);
         }
     
-        ClearBuf((unsigned char *)&LongCode[0], sizeof(LongCode));
+        ClearLongCode();
         DisplayBufIndex += 32;
         LongCode[Index++] = 0x41;         //-A-
         ShowBlock(&LongCode[0], Index, DisplayBufIndex);
@@ -3024,7 +3604,7 @@ void OpenCurrent_Special(const MenuStructure *pMenu, MenuPara *pMenuPara, int Li
 *******************************************************************************/
 void MaxActionTime_Special(const MenuStructure *pMenu, MenuPara *pMenuPara, int LineIndex)
 {
-    unsigned int Code[4] = {0};
+    int Index = 0;
 
     int DisplayBufIndex = 0;
 
@@ -3047,12 +3627,35 @@ void MaxActionTime_Special(const MenuStructure *pMenu, MenuPara *pMenuPara, int 
     {
         if (Device.Para.MaxActionTime < 5)
         {
-            Code[0] = 0xB2BB;                  //-不-
-            Code[1] = 0xCFDE;                  //-限-
-            Code[2] = 0xCAB1;                  //-时-
+            if (Device.Para.LanguageType == Language_CN)
+            {
+                LongCode[Index++] = 0xB2BB;                  //-不-
+                LongCode[Index++] = 0xCFDE;                  //-限-
+                LongCode[Index++] = 0xCAB1;                  //-时-
+            }
+            else
+            {
+                //-Untimed-
+                LongCode[Index++] = 0x55;
+                LongCode[Index++] = 0x6E;
+                LongCode[Index++] = 0x74;
+                LongCode[Index++] = 0x69;
+                LongCode[Index++] = 0x6D;
+                LongCode[Index++] = 0x65;
+                LongCode[Index++] = 0x64;
+            }
+
+            if (Device.Flag.FlagBits.IsInLocalAdjust == 1)
+            {
+                pMenuPara->ColumnReverseUnit = 7;
+            }
+            else
+            {
+                pMenuPara->ColumnReverseUnit = 8;
+            }
     
             DisplayBufIndex = 48;
-            ShowBlock(&Code[0], 4, DisplayBufIndex);
+            ShowBlock(&LongCode[0], Index, DisplayBufIndex);
         } 
         else
         {
@@ -3061,8 +3664,8 @@ void MaxActionTime_Special(const MenuStructure *pMenu, MenuPara *pMenuPara, int 
             
             //-S-
             DisplayBufIndex += 24;
-            Code[0] = 0x53;
-            ShowBlock(&Code[0], 1, DisplayBufIndex);
+            LongCode[Index++] = 0x53;
+            ShowBlock(&LongCode[0], Index, DisplayBufIndex);
         }
     }
     else 
@@ -3152,13 +3755,24 @@ void MaxActionTime_DecKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
 *******************************************************************************/
 void ErrorFeedback_Special(const MenuStructure *pMenu, MenuPara *pMenuPara, int LineIndex)
 {
+    int StarIndex = 0;
+
+    if (Device.Para.LanguageType == Language_CN)
+    {
+        StarIndex = 96;
+    }
+    else
+    {
+        StarIndex = 72;
+    }
+
     if ((LineIndex == 1) && (Device.Para.ErrorFeedBack == IO_NormallyOpen))
     {
-        ShowStar(96);
+        ShowStar(StarIndex);
     }
     else if ((LineIndex == 2) && (Device.Para.ErrorFeedBack == IO_NormallyShut))
     {
-        ShowStar(96);
+        ShowStar(StarIndex);
     }
 }
 
@@ -3190,27 +3804,103 @@ void ErrorFeedback_SetKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
 * 输出参数:    无
 * 返 回 值:    无
 *******************************************************************************/
+void ErrorFeedback_UpKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
+{
+    pMenuPara->RowIndex--;
+    if (pMenuPara->RowIndex < 1)
+    {
+        pMenuPara->RowIndex = pMenuPara->NumOfRows - 1;
+    }
+}
+
+
+/*******************************************************************************
+* 函数名称:    
+* 函数功能:    
+* 输入参数:    
+* 输出参数:    无
+* 返 回 值:    无
+*******************************************************************************/
+void ErrorFeedback_DownKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
+{
+    pMenuPara->RowIndex++;
+    if (pMenuPara->RowIndex >= pMenuPara->NumOfRows)
+    {
+        pMenuPara->RowIndex = 1;
+    }
+}
+
+
+/*******************************************************************************
+* 函数名称:    
+* 函数功能:    
+* 输入参数:    
+* 输出参数:    无
+* 返 回 值:    无
+*******************************************************************************/
 void ESDSetting_Special(const MenuStructure *pMenu, MenuPara *pMenuPara, int LineIndex)
 {
+    int StarIndex = 0;
+
     if ((LineIndex == 0) && (Device.Para.ESDMode == ESDMode_Disable))
     {
-        ShowStar(56);
+        if (Device.Para.LanguageType == Language_CN)
+        {
+            StarIndex = 56;
+        }
+        else
+        {
+            StarIndex = 96;
+        }
+        ShowStar(StarIndex);
     }
     else if ((LineIndex == 1) && (Device.Para.ESDMode == ESDMode_NoAction))
     {
-        ShowStar(88);
+        if (Device.Para.LanguageType == Language_CN)
+        {
+            StarIndex = 88;
+        }
+        else
+        {
+            StarIndex = 72;
+        }
+        ShowStar(StarIndex);
     }
     else if ((LineIndex == 2) && (Device.Para.ESDMode == ESDMode_Open))
     {
-        ShowStar(88);
+        if (Device.Para.LanguageType == Language_CN)
+        {
+            StarIndex = 88;
+        }
+        else
+        {
+            StarIndex = 72;
+        }
+        ShowStar(StarIndex);
     }
     else if ((LineIndex == 3) && (Device.Para.ESDMode == ESDMode_Shut))
     {
-        ShowStar(88);
+        if (Device.Para.LanguageType == Language_CN)
+        {
+            StarIndex = 88;
+        }
+        else
+        {
+            StarIndex= 80;
+        }
+        ShowStar(StarIndex);
     }
     else if ((LineIndex == 4) && (Device.Para.ESDMode == ESDMode_Middle))
     {
-        ShowStar(88);
+        if (Device.Para.LanguageType == Language_CN)
+        {
+            StarIndex = 88;
+        }
+        else
+        {
+            StarIndex = 96;
+        }
+        ShowStar(StarIndex);
     }
 }
 
@@ -3643,30 +4333,30 @@ void Task_Display(void)
             DeleteTimer(&PowerOnTimer);
             Show_Page(Page_Normal_ID);
         }
-    }
 
-    if (IsInMenu() == 1)
-    {
-        if (IsTimeOut(NoKeyTimer) == 1)
+        if (IsInMenu() == 1)
+        {
+            if (IsTimeOut(NoKeyTimer) == 1)
+            {
+                Show_Page(Page_Normal_ID);
+            }
+        }
+        else if (IsInMenu() == 0)
         {
             Show_Page(Page_Normal_ID);
         }
-    }
-    else if (IsInMenu() == 0)
-    {
-        Show_Page(Page_Normal_ID);
-    }
-
-    if (IsTimeOut(AdjustInfoTimer) == 1)
-    {
-        StopTimer(AdjustInfoTimer);
-        if ((CurrentAdjustType == Frame_AdjustZero) || (CurrentAdjustType == Frame_AdjustFull))
+    
+        if (IsTimeOut(AdjustInfoTimer) == 1)
         {
-            Show_Page(Page_MainMenu_ID);
-        }
-        else if ((CurrentAdjustType == Frame_AdjustInput4mA) || (CurrentAdjustType == Frame_AdjustInput20mA))
-        {
-            Show_Page(Page_InternalPara_ID);
+            StopTimer(AdjustInfoTimer);
+            if ((CurrentAdjustType == Frame_AdjustZero) || (CurrentAdjustType == Frame_AdjustFull))
+            {
+                Show_Page(Page_MainMenu_ID);
+            }
+            else if ((CurrentAdjustType == Frame_AdjustInput4mA) || (CurrentAdjustType == Frame_AdjustInput20mA))
+            {
+                Show_Page(Page_InternalPara_ID);
+            }
         }
     }
 

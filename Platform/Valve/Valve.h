@@ -247,6 +247,13 @@ typedef enum
     CurrentDecimalBits_One,
     CurrentDecimalBits_Two
 }CurrentDecimalBits_TypeDef;
+
+//--
+typedef enum
+{
+    Language_CN,
+    Language_EN
+}Language_TypeDef;
 /*******************************************************************************
 *                                  全局变量声明
 ********************************************************************************/

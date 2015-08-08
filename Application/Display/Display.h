@@ -219,6 +219,8 @@ void MaxActionTime_IncKey(const MenuStructure *pMenu, MenuPara *pMenuPara);
 
 void ErrorFeedback_Special(const MenuStructure *pMenu, MenuPara *pMenuPara, int LineIndex);
 void ErrorFeedback_SetKey(const MenuStructure *pMenu, MenuPara *pMenuPara);
+void ErrorFeedback_UpKey(const MenuStructure *pMenu, MenuPara *pMenuPara);
+void ErrorFeedback_DownKey(const MenuStructure *pMenu, MenuPara *pMenuPara);
 
 
 void ESDSetting_Special(const MenuStructure *pMenu, MenuPara *pMenuPara, int LineIndex);

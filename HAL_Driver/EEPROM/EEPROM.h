@@ -41,13 +41,6 @@ extern "C" {
 #define  PAGENO                   0xffffffff   //没有page有效
 
 
-typedef enum
-{
-    Language_CN,
-    Language_EN
-}Language_TypeDef;
-
-
 /*-EEPROM地址分配-*/
 #define EEPROM_KEY_ADDR                 0x00          //-EEPROM键值的起始地址-
 #define EEPROM_KEY_VALUE                0x12345678    //-EEPROM的键值- 
