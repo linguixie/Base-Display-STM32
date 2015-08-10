@@ -25,16 +25,21 @@
 #include "Infrared.h"
 #include "UI.h"
 
+#include "SoftTimer.h"
 #include "Valve.h"
 #include "Display.h"
 /*******************************************************************************
 *                               文件内部使用宏定义
 ********************************************************************************/
- 
+ //-数字快速变化延时(单位:毫秒)-
+#define DigitChangeTime              100      
+#define DigitChange_Delay           (Division(DigitChangeTime, Delay_MiliSecond_Factor))
 
 /*******************************************************************************
 *                                 全局函数(变量)声明
 ********************************************************************************/
+signed long DigitChangeTimer = 0;
+
 
 //-按键按下计时器 用于记录按键按下的时间 根据时间判断按键是长按键还是短按键
 // 按键没有按下时该计时器始终为0-
@@ -67,6 +72,8 @@ void KeyInit(void)
     {
        keyScanEn[i] = 1;
     }
+
+    InsertTimer(&DigitChangeTimer);
 }
 
 
@@ -190,6 +197,8 @@ void IRKeyMsgGet(unsigned char *pKey, unsigned char *Long_Short)
             KeyActivationTime[i] = 0;
             keyScanEn[i]         = 0;
           
+            SetTimer(DigitChangeTimer, DigitChange_Delay);          
+
             pKey[i] = KEY_PRESSED;
             Long_Short[i] = LONG_KEY;
     
@@ -205,6 +214,8 @@ void IRKeyMsgGet(unsigned char *pKey, unsigned char *Long_Short)
             KeyActivationTime[i] = 0;
             keyScanEn[i]         = 0;
           
+            SetTimer(DigitChangeTimer, DigitChange_Delay);
+
             pKey[i] = KEY_PRESSED;
             Long_Short[i] = SHORT_KEY;
 
@@ -223,21 +234,42 @@ void IRKeyMsgGet(unsigned char *pKey, unsigned char *Long_Short)
             pKey[i] = KEY_UNPRESSED;
             Long_Short[i] = KEY_NONE;
         }
-        else
+        else if (keyScanEn[i] == 0)
         {
             if ((i == Key_Inc) || (i == Key_Dec))
             {
-
-                /*-只有在现场模式下和无限位开、关情形下才允许一直按压表示按键一直有效-
-                  -其他情形,一直按压只处理一次-*/
-                if ((Device.CurCommMode.CommModeBits.Local == 1) || (PageFunctionIndex == Page_AdjustZeroAction_ID) 
-                    || (PageFunctionIndex == Page_AdjustFullAction_ID))
+                /*-注意和板子按键处理不同:红外按键对于数字的加减无需切换至现场
+                  -*/
+                switch(PageFunctionIndex)
                 {
+                case Page_AdjustZero_ID:
+                case Page_AdjustFull_ID:
+                    break;
+
+                case Page_DeadZone_ID:
+                case Page_AdjustOutput4mA_ID:
+                case Page_AdjustOutput20mA_ID:
+                case Page_ShutCurrent_ID:
+                case Page_OpenCurrent_ID:
+                case Page_MaxActionTime_ID:
+                    if (IsTimeOut(DigitChangeTimer) == 1)
+                {
+                        SetTimer(DigitChangeTimer, DigitChange_Delay);
+
+                        pKey[i] = KEY_PRESSED;
+                        Long_Short[i] = SHORT_KEY;
                 }
                 else
                 { 
                     pKey[i] = KEY_UNPRESSED;
                     Long_Short[i] = KEY_NONE;
+                }
+                    break;
+
+                default:
+                    pKey[i] = KEY_UNPRESSED;
+                    Long_Short[i] = KEY_NONE;
+                    break;
                 }
             }
             else
@@ -245,6 +277,11 @@ void IRKeyMsgGet(unsigned char *pKey, unsigned char *Long_Short)
                 pKey[i] = KEY_UNPRESSED;
                 Long_Short[i] = KEY_NONE;
             }
+        }
+        else
+        {
+            pKey[i] = KEY_UNPRESSED;
+            Long_Short[i] = KEY_NONE;
         }
     }
 }
@@ -268,6 +305,8 @@ void KeyMsgGet(unsigned char *pKey, unsigned char *Long_Short)
             KeyActivationTime[i] = 0;
             keyScanEn[i]         = 0;
           
+            SetTimer(DigitChangeTimer, DigitChange_Delay);
+
             pKey[i] = KEY_PRESSED;
             Long_Short[i] = LONG_KEY;
     
@@ -279,6 +318,8 @@ void KeyMsgGet(unsigned char *pKey, unsigned char *Long_Short)
             KeyActivationTime[i] = 0;
             keyScanEn[i]         = 0;
           
+            SetTimer(DigitChangeTimer, DigitChange_Delay);
+
             pKey[i] = KEY_PRESSED;
             Long_Short[i] = SHORT_KEY;
 
@@ -293,15 +334,29 @@ void KeyMsgGet(unsigned char *pKey, unsigned char *Long_Short)
             pKey[i] = KEY_UNPRESSED;
             Long_Short[i] = KEY_NONE;
         }
-        else
+        else if (keyScanEn[i] == 0)
         {
             if ((i == Key_Open) || (i == Key_Shut))
             {
                 /*-只有在现场模式下和无限位开、关情形下才允许一直按压表示按键一直有效-
                   -其他情形,一直按压只处理一次-*/
-                if ((Device.CurCommMode.CommModeBits.Local == 1) || (PageFunctionIndex == Page_AdjustZeroAction_ID) 
-                    || (PageFunctionIndex == Page_AdjustFullAction_ID))
+                if ((Device.Flag.FlagBits.IsInLocalAdjust == 1) && (Device.Flag.FlagBits.IsInDigitAdjust == 0))
                 {
+                }
+                else if ((Device.Flag.FlagBits.IsInLocalAdjust == 1) && (Device.Flag.FlagBits.IsInDigitAdjust == 1))
+                {
+                    if (IsTimeOut(DigitChangeTimer) == 1)
+                    {
+                        SetTimer(DigitChangeTimer, DigitChange_Delay);
+
+                        pKey[i] = KEY_PRESSED;
+                        Long_Short[i] = SHORT_KEY;
+                    }
+                    else
+                {
+                        pKey[i] = KEY_UNPRESSED;
+                        Long_Short[i] = KEY_NONE;
+                    }
                 }
                 else
                 { 
@@ -309,6 +364,11 @@ void KeyMsgGet(unsigned char *pKey, unsigned char *Long_Short)
                     Long_Short[i] = KEY_NONE;
                 }
             }
+        }
+        else
+        {
+            pKey[i] = KEY_UNPRESSED;
+            Long_Short[i] = KEY_NONE;
         }
     }
 

@@ -66,6 +66,9 @@ void LocalCheck(void)
                 {
                 case Page_AdjustZero_ID:
                 case Page_AdjustFull_ID:
+
+                    Device.Flag.FlagBits.IsInLocalAdjust = 1;
+                    break;
                 case Page_DeadZone_ID:
                 case Page_AdjustOutput4mA_ID:
                 case Page_AdjustOutput20mA_ID:
@@ -73,6 +76,7 @@ void LocalCheck(void)
                 case Page_OpenCurrent_ID:
                 case Page_MaxActionTime_ID:
                 
+                    Device.Flag.FlagBits.IsInDigitAdjust = 1;
                     Device.Flag.FlagBits.IsInLocalAdjust = 1;
                     break;
                 default:
@@ -104,6 +108,7 @@ void LocalCheck(void)
             if (Device.Flag.FlagBits.IsInLocalAdjust == 1)
             {
                 Device.Flag.FlagBits.IsInLocalAdjust = 0;
+                Device.Flag.FlagBits.IsInDigitAdjust = 0;
             }
             else
             {

@@ -511,7 +511,7 @@ typedef union
     {
         unsigned IsInMenu:1;            //-是否进入菜单设置-
         unsigned IsInLocalAdjust:1;     //-是否旋至现场模式进行数字调整-
-        unsigned Reserved2:1;           //-预留-
+        unsigned IsInDigitAdjust:1;     //-是否处于数字调整-
         unsigned Reserved3:1;           //-预留-
         unsigned Reserved4:1;           //-预留-
         unsigned Reserved5:1;           //-预留-
