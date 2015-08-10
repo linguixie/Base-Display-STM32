@@ -177,6 +177,7 @@ void DeadZone_Special(const MenuStructure *pMenu, MenuPara *pMenuPara, int LineI
 void DeadZone_DecKey(const MenuStructure *pMenu, MenuPara *pMenuPara);
 void DeadZone_IncKey(const MenuStructure *pMenu, MenuPara *pMenuPara);
 
+void Password_Reset(MenuPara *pMenuPara);
 void Password_Special(const MenuStructure *pMenu, MenuPara *pMenuPara, int LineIndex);
 void Password_SetKey(const MenuStructure *pMenu, MenuPara *pMenuPara);
 void Password_UpKey(const MenuStructure *pMenu, MenuPara *pMenuPara);

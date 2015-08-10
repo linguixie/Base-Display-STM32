@@ -75,7 +75,7 @@ static void HardwareInit(void)
     UI_Init();
     InfraredInit();
     LcdInit();
-    //WatchdogInit();
+    WatchdogInit();
 }
 
 /*******************************************************************************
@@ -103,7 +103,6 @@ static void ApplicationInit(void)
     DisplayInit();
     CommunicationInit();
     InputInit();
-    LoadParaFromEEPROM();
 }
 
 
@@ -144,7 +143,7 @@ int main (void)
 
     while(1)
     {
-        //Feed_Watchdog();          //-Œππ∑-
+        Feed_Watchdog();          //-Œππ∑-
         LcdReset();
         Task_Input();             //- ‰»Î-
         Task_Communication();     //-Õ®—∂-

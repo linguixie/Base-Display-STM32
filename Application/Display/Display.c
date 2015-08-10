@@ -484,7 +484,7 @@ const MenuStructure Menu_Password[] =
 };   
 
  //-第6个初始值代表菜单项个数,必须给正确的值-
-MenuPara      MenuPara_Password = {2, 4, Disable,Enable, 1, 4, Multiplex_Password, Dummy_Reset};   
+MenuPara      MenuPara_Password = {2, 4, Disable,Enable, 1, 4, Multiplex_Password, Password_Reset};   
 
 
 /*---------------------内部参数-----------------------------------------------*/
@@ -2933,6 +2933,13 @@ void DeadZone_DecKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
     {
         Device.Para.DeadZone--;
     }
+}
+
+
+void Password_Reset(MenuPara *pMenuPara)
+{
+    ClearBuf(&Password[0], sizeof(Password));
+    MenuPara_Password.ColumnIndex = 4;
 }
 
 
