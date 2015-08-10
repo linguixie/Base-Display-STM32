@@ -59,6 +59,8 @@ void LocalCheck(void)
         if (--Count_H <= 0)
         {
             Device.Input.Local = True;
+            
+            UI_Buzz_Short();
 
             if (IsInMenu() == 1)
             {
@@ -105,6 +107,8 @@ void LocalCheck(void)
         {
             Device.Input.Local = False;
 
+            UI_Buzz_Short();
+
             if (Device.Flag.FlagBits.IsInLocalAdjust == 1)
             {
                 Device.Flag.FlagBits.IsInLocalAdjust = 0;
@@ -143,6 +147,8 @@ void RemoteCheck(void)
         {
             Device.Input.Remote = True;
 
+            UI_Buzz_Short();
+
             Device.DstCommMode.CommModeBits.Remote = 1;
             EnterMenu(0);
         }
@@ -159,6 +165,8 @@ void RemoteCheck(void)
         if (--Count_L <= 0)
         {
             Device.Input.Remote = False;
+
+            UI_Buzz_Short();
 
             Device.DstCommMode.CommModeBits.Remote = 0;
         }

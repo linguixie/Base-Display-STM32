@@ -50,6 +50,10 @@ extern "C" {
 #define Led_ShutLimit            (&LED[LED_SHUTLIMIT])
 #define Led_OpenLimit            (&LED[LED_OPENLIMIT])
  
+
+/*--*/
+#define UI_Buzz_Long()           (UI_Buzz(500, 300, 1))
+#define UI_Buzz_Short()          (UI_Buzz(300, 300, 1))
 /*******************************************************************************
 *                                  全局变量声明
 ********************************************************************************/

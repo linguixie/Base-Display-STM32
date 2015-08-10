@@ -15,6 +15,7 @@
 *           4、要特别区分处理一直按压究竟是处理1次还是表示一直有效(移植重点关注部分)
 *           5、缺点:如果按键一直按压表示1次有效.但是如果长按键的检测时间过长,则按键按
 *                   压后,必须直到长按键检测时间才会认作按键有效.
+*           6、本源文件处理进入菜单后的按键.非菜单界面下的按键请参照Input.c
 ********************************************************************************/
 /*******************************************************************************
 *                                    头  文  件
@@ -202,7 +203,7 @@ void IRKeyMsgGet(unsigned char *pKey, unsigned char *Long_Short)
             pKey[i] = KEY_PRESSED;
             Long_Short[i] = LONG_KEY;
     
-            UI_Buzz(500, 300, 1);
+            UI_Buzz_Long();
         }
         else if ((1 == keyScanEn[i]) && (KeyStateRead(i) == KEY_UNPRESSED) 
                  && (KeyActivationTime[i] >= SHORT_KEY_TIME))
@@ -219,7 +220,7 @@ void IRKeyMsgGet(unsigned char *pKey, unsigned char *Long_Short)
             pKey[i] = KEY_PRESSED;
             Long_Short[i] = SHORT_KEY;
 
-            UI_Buzz(300, 300, 1);
+            UI_Buzz_Short();
 
         }
         //-抖动-
@@ -298,7 +299,7 @@ void KeyMsgGet(unsigned char *pKey, unsigned char *Long_Short)
 {
     int i = 0; 
 
-    for (i = 0; i < KeyOnBoard_Num; i++)
+    for (i = Key_Open; i < KeyOnBoard_Num; i++)
     {
         if ((1 == keyScanEn[i]) && (KeyActivationTime[i] >= LONG_KEY_TIME))
         {
@@ -310,7 +311,7 @@ void KeyMsgGet(unsigned char *pKey, unsigned char *Long_Short)
             pKey[i] = KEY_PRESSED;
             Long_Short[i] = LONG_KEY;
     
-            UI_Buzz(500, 300, 1);
+            UI_Buzz_Long();
         }
         else if ((1 == keyScanEn[i]) && (KeyStateRead(i) == KEY_UNPRESSED) 
                  && (KeyActivationTime[i] >= SHORT_KEY_TIME))
@@ -323,7 +324,7 @@ void KeyMsgGet(unsigned char *pKey, unsigned char *Long_Short)
             pKey[i] = KEY_PRESSED;
             Long_Short[i] = SHORT_KEY;
 
-            UI_Buzz(300, 300, 1);
+            UI_Buzz_Short();
 
         }
         //-抖动-

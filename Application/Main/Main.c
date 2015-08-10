@@ -27,6 +27,7 @@
 #include "Output.h"
 #include "EEPROM.h"
 #include "Watchdog.h"
+#include "Config.h"
 #include "Communication.h"
 /*******************************************************************************
 *                               文件内部使用宏定义
@@ -75,7 +76,9 @@ static void HardwareInit(void)
     UI_Init();
     InfraredInit();
     LcdInit();
+#if !Jlink_Debug
     WatchdogInit();
+#endif
 }
 
 /*******************************************************************************
@@ -143,7 +146,9 @@ int main (void)
 
     while(1)
     {
+#if !Jlink_Debug
         Feed_Watchdog();          //-喂狗-
+#endif
         LcdReset();
         Task_Input();             //-输入-
         Task_Communication();     //-通讯-
