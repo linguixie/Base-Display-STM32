@@ -34,23 +34,23 @@ extern "C" {
 #define Buzzer_Clr()              (Buzzer_Port->BRR = Buzzer_Pin)
 
 /*-Communication-*/
-#define COMM_CS_Pin               GPIO_Pin_4
+#define COMM_CS_Pin               GPIO_Pin_5
 #define COMM_CS_Port              GPIOB
 #define COMM_CSSet()              (COMM_CS_Port->BSRR = COMM_CS_Pin)
 #define COMM_CSClr()              (COMM_CS_Port->BRR = COMM_CS_Pin)
 
-#define COMM_MISO_Pin             GPIO_Pin_5
+#define COMM_MISO_Pin             GPIO_Pin_6
 #define COMM_MISO_Port            GPIOB
 //#define COMM_MISOGet()            (GPIO_ReadInputDataBit(COMM_Port, COMM_MISO_Pin))
 #define COMM_MISOGet()            (COMM_MISO_Port->IDR & COMM_MISO_Pin)
 
-#define COMM_MOSI_Pin             GPIO_Pin_3
+#define COMM_MOSI_Pin             GPIO_Pin_4
 #define COMM_MOSI_Port            GPIOB
 #define COMM_MOSISet()            (COMM_MOSI_Port->BSRR = COMM_MOSI_Pin)
 #define COMM_MOSIClr()            (COMM_MOSI_Port->BRR = COMM_MOSI_Pin)
 
-#define COMM_CLK_Pin              GPIO_Pin_13
-#define COMM_CLK_Port             GPIOC
+#define COMM_CLK_Pin              GPIO_Pin_3
+#define COMM_CLK_Port             GPIOB
 #define COMM_CLKSet()             (COMM_CLK_Port->BSRR = COMM_CLK_Pin)
 #define COMM_CLKClr()             (COMM_CLK_Port->BRR = COMM_CLK_Pin)
 //#define COMM_CLKGet()             (GPIO_ReadOutputDataBit(COMM_Port, COMM_CLK_Pin))
@@ -87,10 +87,10 @@ extern "C" {
 
 
 /*-LED-*/
-#define Led_OpenLimit_Pin         GPIO_Pin_8
-#define Led_OpenLimit_Port        GPIOA
+#define Led_OpenLimit_Pin         GPIO_Pin_15
+#define Led_OpenLimit_Port        GPIOB
 
-#define Led_ShutLimit_Pin         GPIO_Pin_15
+#define Led_ShutLimit_Pin         GPIO_Pin_14
 #define Led_ShutLimit_Port        GPIOB
 #define Led_OpenLimitSet()        (Led_OpenLimit_Port->BSRR = Led_OpenLimit_Pin)
 #define Led_OpenLimitClr()        (Led_OpenLimit_Port->BRR = Led_OpenLimit_Pin)
