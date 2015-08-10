@@ -29,13 +29,13 @@
 /*******************************************************************************
 *                               文件内部使用宏定义
 ********************************************************************************/
-#define PasswordByte_0   0x01
-#define PasswordByte_1   0x00
-#define PasswordByte_2   0x00
-#define PasswordByte_3   0x00
+//-密码组数,有xx组密码-
+#define PasswordGroupNum    3 
+//-每组密码的个数-  
+#define PasswordNum         4
 
-#define MaxLockTime      0xFFFF
-#define MinLockTime      0x00
+#define MaxLockTime         0xFFFF
+#define MinLockTime         0x00
 
 //-为了书写方便-
 #define ClearLongCode()     (ClearBuf((unsigned char *)&LongCode[0], sizeof(LongCode)))
@@ -61,8 +61,8 @@ unsigned char PageFunctionIndex = Page_PowerOn_ID;
 unsigned char NeedResetMenuPara = 0;
 
 unsigned char PasswordErrorCount = 0;
-unsigned char Password[4] = {0};
-
+unsigned char InputPassword[PasswordNum] = {0};
+const unsigned char ConstPassword[PasswordGroupNum][PasswordNum] = {{1, 0, 0, 0}, {1, 2, 3, 4}, {8, 8, 8, 8}};
 //-此数组先前定义在ShowNumber中,但是后来发现会导致栈空间不够,
 // 只能将原来局部变量改成全局变量.-
 unsigned int LongCode[16];
@@ -173,12 +173,12 @@ const MenuStructure Menu_PowerOn[] =
   {1,             InvalidMenuID,           InvalidMenuID,         {{0xB5E7, 0xB6AF, 0xB7A7, 0xC3C5, 0xD6B4, 0xD0D0, 0xBBFA, 0xB9B9}, {Space, 0x76, 0x61, 0x6C, 0x76, 0x65, 0x20, 0x61, 0x63, 0x74, 0x75, 0x61, 0x74, 0x6F, 0x72}},
   Dummy_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
 
-  //-版本V1.2(Version1.2)-
-  {2,            InvalidMenuID,           InvalidMenuID,          {{Space, Space, 0xB0E6, 0xB1BE, 0xA3BA, Space, 0xA3D6, 0xA3B1, 0xA3AE, 0xA3B2, Space, Space, Space, Space}, {Space, Space, Space, 0x56, 0x65, 0x72, 0x73, 0x69, 0x6F, 0x6E, 0x31, 0x2E, 0x32}},
+  //--
+  {2,            InvalidMenuID,           InvalidMenuID,          {0},
   Dummy_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
 
-  //--
-  {3,            InvalidMenuID,           InvalidMenuID,          {0},
+  //-版本V1.2(Version1.2)-
+  {3,            InvalidMenuID,           InvalidMenuID,          {{Space, Space, 0xB0E6, 0xB1BE, 0xA3BA, Space, 0xA3D6, 0xA3B1, 0xA3AE, 0xA3B2, Space, Space, Space, Space}, {Space, Space, Space, 0x56, 0x65, 0x72, 0x73, 0x69, 0x6F, 0x6E, 0x31, 0x2E, 0x32}},
   Dummy_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
 };
 
@@ -470,7 +470,7 @@ const MenuStructure Menu_Password[] =
   {0,             Page_MainMenu_ID,        InvalidMenuID,           {{0xD0E8, 0xD3C9, 0xD7A8, 0xD2B5, 0xC8CB, 0xD4B1, 0xC9E8, 0xD6C3}, {0x53, 0x65, 0x74, 0x20, 0x62, 0x79, 0x20, 0x50, 0x52, 0x4F, 0x20, 0x6F, 0x6E, 0x6C, 0x79}},
   Dummy_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
 
-  //-请输入密码(Input Password)-
+  //-请输入密码(Input InputPassword)-
   {1,             InvalidMenuID,           InvalidMenuID,           {{0xC7EB, 0xCAE4, 0xC8EB, 0xC3DC, 0xC2EB}, {0x49, 0x6E, 0x70, 0x75, 0x74, 0x20, 0x50, 0x61, 0x73, 0x73, 0x77, 0x6F, 0x72, 0x64}}, 
   Dummy_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
 
@@ -1016,7 +1016,7 @@ void ShowBlock(unsigned int *pCode, int CodeLen, int X_Offset)
 *              BitCount,显示的位数(去除小数点后的位数,例如0.5的位数为2)
 *              DecimalBitCount,小数点位数(例如0.5的位数为2)
 *              X_Offset,显示的水平偏移0~128
-*              FrontZeroDisplay, = 1,有效数字前面的零也显示; 否则不显示.
+*              FrontZeroDisplay, = 1,有效数字前面的零也显示; =0不显示(值为0时,小数点显示也蜕变为0). =2,全为0时显示0.0
 * 输出参数:    无
 * 返 回 值:    无
 *******************************************************************************/
@@ -1064,7 +1064,7 @@ void ShowNumbers(unsigned int Value, int BitCount, int DecimalBitCount, int X_Of
     //-千-
     if ((QianValue == 0) && (WanValue == 0))
     {
-        if (FrontZeroDisplay == 1)
+        if (FrontZeroDisplay != 0)
         {
             LongCode[1] = QianValue + 0xA3B0;
         }
@@ -1081,7 +1081,7 @@ void ShowNumbers(unsigned int Value, int BitCount, int DecimalBitCount, int X_Of
     //-百-
     if ((BaiValue == 0) && (QianValue == 0) && (WanValue == 0))
     {
-        if (FrontZeroDisplay == 1)
+        if (FrontZeroDisplay != 0)
         {
             LongCode[2] = BaiValue + 0xA3B0;
         }
@@ -1098,7 +1098,7 @@ void ShowNumbers(unsigned int Value, int BitCount, int DecimalBitCount, int X_Of
     //-十-
     if ((ShiValue == 0) && (BaiValue == 0) && (QianValue == 0) && (WanValue == 0))
     {
-        if (FrontZeroDisplay == 1)
+        if (FrontZeroDisplay != 0)
         {
             LongCode[3] = ShiValue + 0xA3B0;
         }
@@ -1139,6 +1139,19 @@ void ShowNumbers(unsigned int Value, int BitCount, int DecimalBitCount, int X_Of
         }
         else
         {
+            if ((LongCode[3] == 0xA3B0) && (LongCode[4] == 0xA3B0))
+            {
+                if (FrontZeroDisplay == 2)
+                {
+                    for (i = 0; i < DecimalIndex - 1; i++)
+                    {
+                        if (LongCode[i] == 0xA3B0)
+                        {
+                            LongCode[i] = Space;
+                        }
+                    }
+                }
+            }
             LongCode[DecimalIndex] = 0xA3AE;    //-小数点-
     
             //-要判断显示的位数-
@@ -1153,15 +1166,8 @@ void ShowNumbers(unsigned int Value, int BitCount, int DecimalBitCount, int X_Of
         }
         else
         {
-            if (FrontZeroDisplay == 1)
-            {
-                ShowBlock(&LongCode[5 - BitCount], BitCount, X_Offset);
-            }
-            else
-            {
-                //-==0时,显示0,所以要去除小数点所占的位置-
-                ShowBlock(&LongCode[5 - BitCount], BitCount, X_Offset + 8);
-            }
+            //-==0时,显示0,所以要去除小数点所占的位置-
+            ShowBlock(&LongCode[5 - BitCount], BitCount, X_Offset + 8);
         }
     }
 }
@@ -1519,11 +1525,11 @@ void NormalPage_Special0(const MenuStructure *pMenu, MenuPara *pMenuPara, int Li
         DisplayBufIndex += 16;
         if (Device.Para.CurrentDecimalBits == CurrentDecimalBits_Two)
         {
-            ShowNumbers(Valve.MiscInfo.Current, 3, 2, DisplayBufIndex, 1);
+            ShowNumbers(Valve.MiscInfo.Current, 3, 2, DisplayBufIndex, 2);
         }
         else
         {
-            ShowNumbers(Valve.MiscInfo.Current, 3, 1, DisplayBufIndex, 1);
+            ShowNumbers(Valve.MiscInfo.Current, 3, 1, DisplayBufIndex, 2);
         }
 
         LcdRefresh(LineIndex);
@@ -1847,6 +1853,15 @@ void NormalPage_Special3(const MenuStructure *pMenu, MenuPara *pMenuPara, int Li
     LineIndex = 3;  
     ClearBuf(&g_DisplayBuf[0], Display_Buf_Size);   
 
+    if (Device.Para.LanguageType == Language_CN)
+    {
+        DisplayBufIndex = 32;
+    }
+    else
+    {
+        //英文, 根据显示的内容单独设置
+    }
+
     ClearLongCode();
     switch(Device.WorkMode.CurWorkMode)
     {
@@ -1860,18 +1875,18 @@ void NormalPage_Special3(const MenuStructure *pMenu, MenuPara *pMenuPara, int Li
         }
         else
         {
-            //-Remote(Bus)-
+            //-Remote-Bus-
+            DisplayBufIndex = 24;
             LongCode[Index++] = 0x52;
             LongCode[Index++] = 0x65;
             LongCode[Index++] = 0x6D;
             LongCode[Index++] = 0x6F;
             LongCode[Index++] = 0x74;
             LongCode[Index++] = 0x65;
-            LongCode[Index++] = 0x28;
+            LongCode[Index++] = 0x2D;
             LongCode[Index++] = 0x42;
             LongCode[Index++] = 0x75;
             LongCode[Index++] = 0x73;
-            LongCode[Index++] = 0x29;
         }
         break;
     case 1:
@@ -1890,20 +1905,19 @@ void NormalPage_Special3(const MenuStructure *pMenu, MenuPara *pMenuPara, int Li
             }
             else
             {
-                //-Remote(Auto)-
+                //-Remote-Auto-
+                DisplayBufIndex = 24;
                 LongCode[Index++] = 0x52;
                 LongCode[Index++] = 0x65;
                 LongCode[Index++] = 0x6D;
                 LongCode[Index++] = 0x6F;
                 LongCode[Index++] = 0x74;
                 LongCode[Index++] = 0x65;
-                LongCode[Index++] = 0x20;
-                LongCode[Index++] = 0x28;
+                LongCode[Index++] = 0x2D;
                 LongCode[Index++] = 0x41;
                 LongCode[Index++] = 0x75;
                 LongCode[Index++] = 0x74;
                 LongCode[Index++] = 0x6F;
-                LongCode[Index++] = 0x29;
             }
         }
         break;
@@ -1926,17 +1940,21 @@ void NormalPage_Special3(const MenuStructure *pMenu, MenuPara *pMenuPara, int Li
         }
         else
         {
-            //-Local(LTS)-
+            //-Local-Inching-
+            DisplayBufIndex = 16;
             LongCode[Index++] = 0x4C;
             LongCode[Index++] = 0x6F;
             LongCode[Index++] = 0x63;
             LongCode[Index++] = 0x61;
             LongCode[Index++] = 0x6C;
-            LongCode[Index++] = 0x28;
-            LongCode[Index++] = 0x4C;
-            LongCode[Index++] = 0x54;
-            LongCode[Index++] = 0x53;
-            LongCode[Index++] = 0x29;
+            LongCode[Index++] = 0x2D;
+            LongCode[Index++] = 0x49;
+            LongCode[Index++] = 0x6E;
+            LongCode[Index++] = 0x63;
+            LongCode[Index++] = 0x68;
+            LongCode[Index++] = 0x69;
+            LongCode[Index++] = 0x6E;
+            LongCode[Index++] = 0x67;
         }
         break;
     case 6:
@@ -1949,17 +1967,21 @@ void NormalPage_Special3(const MenuStructure *pMenu, MenuPara *pMenuPara, int Li
         }
         else
         {
-            //-Local(STS)-
+            //-Local-Holding-
+            DisplayBufIndex = 16;
             LongCode[Index++] = 0x4C;
             LongCode[Index++] = 0x6F;
             LongCode[Index++] = 0x63;
             LongCode[Index++] = 0x61;
             LongCode[Index++] = 0x6C;
-            LongCode[Index++] = 0x28;
-            LongCode[Index++] = 0x53;
-            LongCode[Index++] = 0x54;
-            LongCode[Index++] = 0x53;
-            LongCode[Index++] = 0x29;
+            LongCode[Index++] = 0x2D;
+            LongCode[Index++] = 0x48;
+            LongCode[Index++] = 0x6F;
+            LongCode[Index++] = 0x6C;
+            LongCode[Index++] = 0x64;
+            LongCode[Index++] = 0x69;
+            LongCode[Index++] = 0x6E;
+            LongCode[Index++] = 0x67;
         }
         break;
     case 7:
@@ -1972,6 +1994,8 @@ void NormalPage_Special3(const MenuStructure *pMenu, MenuPara *pMenuPara, int Li
         }
         else
         {
+            DisplayBufIndex = 32;
+
             //-Stop-
             LongCode[Index++] = 0x73;
             LongCode[Index++] = 0x74;
@@ -1995,18 +2019,22 @@ void NormalPage_Special3(const MenuStructure *pMenu, MenuPara *pMenuPara, int Li
         }
         else
         {
-            //-Remote(LTS)-
+            //-Remote-Inching-
+            DisplayBufIndex = 8;
             LongCode[Index++] = 0x52;
             LongCode[Index++] = 0x65;
             LongCode[Index++] = 0x6D;
             LongCode[Index++] = 0x6F;
             LongCode[Index++] = 0x74;
             LongCode[Index++] = 0x65;
-            LongCode[Index++] = 0x28;
-            LongCode[Index++] = 0x4C;
-            LongCode[Index++] = 0x54;
-            LongCode[Index++] = 0x53;
-            LongCode[Index++] = 0x29;
+            LongCode[Index++] = 0x2D;
+            LongCode[Index++] = 0x49;
+            LongCode[Index++] = 0x6E;
+            LongCode[Index++] = 0x63;
+            LongCode[Index++] = 0x68;
+            LongCode[Index++] = 0x69;
+            LongCode[Index++] = 0x6E;
+            LongCode[Index++] = 0x67;
         }
         break;
 
@@ -2022,18 +2050,22 @@ void NormalPage_Special3(const MenuStructure *pMenu, MenuPara *pMenuPara, int Li
         }
         else
         {
-            //-Remote(STS)-
+            //-Remote-Holding-
+            DisplayBufIndex = 8;
             LongCode[Index++] = 0x52;
             LongCode[Index++] = 0x65;
             LongCode[Index++] = 0x6D;
             LongCode[Index++] = 0x6F;
             LongCode[Index++] = 0x74;
             LongCode[Index++] = 0x65;
-            LongCode[Index++] = 0x28;
-            LongCode[Index++] = 0x53;
-            LongCode[Index++] = 0x54;
-            LongCode[Index++] = 0x53;
-            LongCode[Index++] = 0x29;
+            LongCode[Index++] = 0x2D;
+            LongCode[Index++] = 0x48;
+            LongCode[Index++] = 0x6F;
+            LongCode[Index++] = 0x6C;
+            LongCode[Index++] = 0x64;
+            LongCode[Index++] = 0x69;
+            LongCode[Index++] = 0x6E;
+            LongCode[Index++] = 0x67;
         }
         break;
 
@@ -2049,27 +2081,26 @@ void NormalPage_Special3(const MenuStructure *pMenu, MenuPara *pMenuPara, int Li
         }
         else
         {
-            //-Remote(I/O)-
+            //-Remote-Dibit-
+            DisplayBufIndex = 16;
             LongCode[Index++] = 0x52;
             LongCode[Index++] = 0x65;
             LongCode[Index++] = 0x6D;
             LongCode[Index++] = 0x6F;
             LongCode[Index++] = 0x74;
             LongCode[Index++] = 0x65;
-            LongCode[Index++] = 0x28;
-            LongCode[Index++] = 0x49;
-            LongCode[Index++] = 0x2F;
-            LongCode[Index++] = 0x4F;
-            LongCode[Index++] = 0x29;
+            LongCode[Index++] = 0x2D;
+            LongCode[Index++] = 0x44;
+            LongCode[Index++] = 0x69;
+            LongCode[Index++] = 0x62;
+            LongCode[Index++] = 0x69;
+            LongCode[Index++] = 0x74;
         }
         break;
 
     default:
         break;
     }
-
-   
-    DisplayBufIndex = 32;
  
     ShowBlock(&LongCode[0], Index, DisplayBufIndex);
 
@@ -2938,8 +2969,9 @@ void DeadZone_DecKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
 
 void Password_Reset(MenuPara *pMenuPara)
 {
-    ClearBuf(&Password[0], sizeof(Password));
+    ClearBuf(&InputPassword[0], sizeof(InputPassword));
     MenuPara_Password.ColumnIndex = 4;
+    PasswordErrorCount = 0;
 }
 
 
@@ -2963,7 +2995,7 @@ void Password_Special(const MenuStructure *pMenu, MenuPara *pMenuPara, int LineI
         DisplayBufIndex = 4 << EN_X_SIZE_Shift_Count;
         for (i = 0; i < 4; i++)
         {
-            Code = Password[i] + 0xA3B0;
+            Code = InputPassword[i] + 0xA3B0;
             GetDotData(Code, EN_Character, &FontBuf[0], &FontBufLen);
             SwapFontBuf2DisplayBuf(FontBuf, FontBufLen, &g_DisplayBuf[0], DisplayBufIndex);
     
@@ -2989,6 +3021,10 @@ void Password_Special(const MenuStructure *pMenu, MenuPara *pMenuPara, int LineI
 *******************************************************************************/
 void Password_SetKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
 {
+    int i = 0;
+    int j = 0;
+    unsigned char IsPasswordError = 0;
+
     MenuPara_Password.ColumnIndex += 2;
 
     //-范围[4,6,8,10]-
@@ -2996,8 +3032,26 @@ void Password_SetKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
     {
         MenuPara_Password.ColumnIndex = 4;  
 
-        if ((Password[0] == PasswordByte_0) && (Password[1] == PasswordByte_1) &&  
-            (Password[2] == PasswordByte_2) && (Password[3] == PasswordByte_3))        
+        for (i = 0; i < PasswordGroupNum; i++)
+        {
+            IsPasswordError = 0;
+            for (j = 0; j < PasswordNum; j++)
+            {
+                if (InputPassword[j] != ConstPassword[i][j])
+                {
+                    IsPasswordError = 1;
+                    break;
+                }
+            }
+
+            //-有一组密码通过-
+            if (j == PasswordNum)
+            {
+                break;
+            }
+        }
+           
+        if (IsPasswordError == 0)    
         {
             if (pMenu->ChildMenuID != 0)
             {
@@ -3006,7 +3060,7 @@ void Password_SetKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
                 Show_Page(pMenu->ChildMenuID);
  
                 PasswordErrorCount = 0;
-                ClearBuf(&Password[0], 4);
+                ClearBuf(&InputPassword[0], 4);
                  
                 return;
             }
@@ -3022,7 +3076,7 @@ void Password_SetKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
                 Show_Page(Page_Normal_ID);
 
                 PasswordErrorCount = 0;
-                ClearBuf(&Password[0], 4);
+                ClearBuf(&InputPassword[0], 4);
 
                 return;
             }
@@ -3097,10 +3151,10 @@ void Password_IncKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
         Index = 3;
     }
 
-    Password[Index]++;
-    if (Password[Index] >= 10)
+    InputPassword[Index]++;
+    if (InputPassword[Index] >= 10)
     {
-        Password[Index] = 0;
+        InputPassword[Index] = 0;
     }
 }
 
@@ -3133,12 +3187,12 @@ void Password_DecKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
         Index = 3;
     }
 
-    if (Password[Index] <= 0)
+    if (InputPassword[Index] <= 0)
     {
-        Password[Index] = 10;
+        InputPassword[Index] = 10;
     }
 
-    Password[Index]--;
+    InputPassword[Index]--;
 }
 
 
