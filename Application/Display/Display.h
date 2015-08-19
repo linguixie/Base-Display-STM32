@@ -186,6 +186,8 @@ void Password_IncKey(const MenuStructure *pMenu, MenuPara *pMenuPara);
 
 void InternalPara_ESD_Special(const MenuStructure *pMenu, MenuPara *pMenuPara, int LineIndex);
 void InternalPara_ESD_SetKey(const MenuStructure *pMenu, MenuPara *pMenuPara);
+void InternalPara_Current_Special(const MenuStructure *pMenu, MenuPara *pMenuPara, int LineIndex);
+void InternalPara_Current_SetKey(const MenuStructure *pMenu, MenuPara *pMenuPara);
 
 
 void AdjustOutput4_20mA_Special(const MenuStructure *pMenu, MenuPara *pMenuPara, int LineIndex);

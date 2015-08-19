@@ -326,9 +326,11 @@ void LcdReset(void)
         Delay(5);
     }
 
-    TransferCommand(0x23);   /*粗调对比度，可设置范围0x20～0x27*/
+    /*-对比度设置:对比度设置必须粗调和微调配合起来用.目前试验出两对(24, 28)和(23, 3C)
+       配合的要求是,粗调以23为中心,越大则微调应小.越小则微调应大-*/
+    TransferCommand(0x23);   /*粗调对比度,理论上可设置范围0x20～0x27;*/
     TransferCommand(0x81);   /*微调对比度*/
-    TransferCommand(0x30);   /*0x28,微调对比度的值，可设置范围0x00～0x3f*/
+    TransferCommand(0x35);   /*0x28,微调对比度的值，可设置范围0x00～0x3f*/
     TransferCommand(0xA2);   /*1/9偏压比（bias）*/
     TransferCommand(0xc8);   /*行扫描顺序：从上到下*/
     TransferCommand(0xa0);   /*列扫描顺序：从左到右*/

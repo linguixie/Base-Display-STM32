@@ -99,10 +99,10 @@ const unsigned short int SeriousErrorArray[8][2][16] =
 };
 const unsigned short int SlightErrorArray[8][2][16] = 
 {
-    //-关向过矩(ERR-TOP)-
-    {{0xB9D8, 0xCFF2, 0xB9FD, 0xBED8}, {0x45, 0x52, 0x52, 0x2D, 0x54, 0x4F, 0x50}},
-    //-开向过矩(ERR-TCP)-
-    {{0xBFAA, 0xCFF2, 0xB9FD, 0xBED8}, {0x45, 0x52, 0x52, 0x2D, 0x54, 0x43, 0x50}}, 
+    //-关向过矩(ERR-TCP)-
+    {{0xB9D8, 0xCFF2, 0xB9FD, 0xBED8}, {0x45, 0x52, 0x52, 0x2D, 0x54, 0x43, 0x50}},
+    //-开向过矩(ERR-TOP)-
+    {{0xBFAA, 0xCFF2, 0xB9FD, 0xBED8}, {0x45, 0x52, 0x52, 0x2D, 0x54, 0x4F, 0x50}}, 
     //-关向超时(ERR-CLT)-
     {{0xB9D8, 0xCFF2, 0xB3AC, 0xCAB1}, {0x45, 0x52, 0x52, 0x2D, 0x43, 0x4C, 0x54}},
     //-开向超时(ERR-OLT)-
@@ -111,10 +111,10 @@ const unsigned short int SlightErrorArray[8][2][16] =
     {{0xB9D8, 0xCFF2, 0xB9FD, 0xC1F7}, {0x45, 0x52, 0x52, 0x2D, 0x43, 0x4F, 0x43}},
     //-开向过流(ERR-OOC)-
     {{0xBFAA, 0xCFF2, 0xB9FD, 0xC1F7}, {0x45, 0x52, 0x52, 0x2D, 0x4F, 0x4F, 0x43}},
-    //-关向错误(ERR-OPD)-
-    {{0xB9D8, 0xCFF2, 0xB4ED, 0xCEF3}, {0x45, 0x52, 0x52, 0x2D, 0x4F, 0x50, 0x44}},
-    //-开向错误(ERR-CLD)-
-    {{0xBFAA, 0xCFF2, 0xB4ED, 0xCEF3}, {0x45, 0x52, 0x52, 0x2D, 0x43, 0x4C, 0x44}},
+    //-关向错误(ERR-CLD)-
+    {{0xB9D8, 0xCFF2, 0xB4ED, 0xCEF3}, {0x45, 0x52, 0x52, 0x2D, 0x43, 0x4C, 0x44}},
+    //-开向错误(ERR-OPD)-
+    {{0xBFAA, 0xCFF2, 0xB4ED, 0xCEF3}, {0x45, 0x52, 0x52, 0x2D, 0x4F, 0x50, 0x44}},
 };
 
 
@@ -470,7 +470,7 @@ const MenuStructure Menu_Password[] =
   {0,             Page_MainMenu_ID,        InvalidMenuID,           {{0xD0E8, 0xD3C9, 0xD7A8, 0xD2B5, 0xC8CB, 0xD4B1, 0xC9E8, 0xD6C3}, {0x53, 0x65, 0x74, 0x20, 0x62, 0x79, 0x20, 0x50, 0x52, 0x4F, 0x20, 0x6F, 0x6E, 0x6C, 0x79}},
   Dummy_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
 
-  //-请输入密码(Input InputPassword)-
+  //-请输入密码(Input Password)-
   {1,             InvalidMenuID,           InvalidMenuID,           {{0xC7EB, 0xCAE4, 0xC8EB, 0xC3DC, 0xC2EB}, {0x49, 0x6E, 0x70, 0x75, 0x74, 0x20, 0x50, 0x61, 0x73, 0x73, 0x77, 0x6F, 0x72, 0x64}}, 
   Dummy_Special, DummyFunction, DummyFunction, DummyFunction, DummyFunction, DummyFunction},
 
@@ -509,11 +509,11 @@ const MenuStructure Menu_InternalPara[] =
 
   //-设置关动作电流(Max Clse Current)-
   {4,             InvalidMenuID,           Page_ShutCurrent_ID,     {{0xC9E8, 0xD6C3, 0xB9D8, 0xB6AF, 0xD7F7, 0xB5E7, 0xC1F7}, {0x4D, 0x61, 0x78, 0x20, 0x43, 0x6C, 0x73, 0x65, 0x20, 0x43, 0x75, 0x72, 0x72, 0x65, 0x6E, 0x74}},
-  Dummy_Special, StandardMenu_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
+  InternalPara_Current_Special, InternalPara_Current_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
 
   //-设置开动作电流(Max Open Current)-
   {5,             InvalidMenuID,           Page_OpenCurrent_ID,     {{0xC9E8, 0xD6C3, 0xBFAA, 0xB6AF, 0xD7F7, 0xB5E7, 0xC1F7}, {0x4D, 0x61, 0x78, 0x20, 0x4F, 0x70, 0x65, 0x6E, 0x20, 0x43, 0x75, 0x72, 0x72, 0x65, 0x6E, 0x74}},
-  Dummy_Special, StandardMenu_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
+  InternalPara_Current_Special, InternalPara_Current_SetKey, StandardMenu_UpKey, StandardMenu_DownKey, DummyFunction, DummyFunction},
 
   //-阀门最大开闭时间(Max Action Time)-
   {6,             InvalidMenuID,           Page_MaxActionTime_ID,   {{0xB7A7, 0xC3C5,0xD7EE, 0xB4F3, 0xBFAA, 0xB1D5, 0xCAB1, 0xBCE4}, {0x4D, 0x61, 0x78, 0x20, 0x41, 0x63, 0x74, 0x69, 0x6F, 0x6E, 0x20, 0x54, 0x69, 0x6D, 0x65}},
@@ -1016,7 +1016,7 @@ void ShowBlock(unsigned int *pCode, int CodeLen, int X_Offset)
 *              BitCount,显示的位数(去除小数点后的位数,例如0.5的位数为2)
 *              DecimalBitCount,小数点位数(例如0.5的位数为2)
 *              X_Offset,显示的水平偏移0~128
-*              FrontZeroDisplay, = 1,有效数字前面的零也显示; =0不显示(值为0时,小数点显示也蜕变为0). =2,全为0时显示0.0
+*              FrontZeroDisplay, = 1,有效数字前面的零也显示; =0不显示(有小数点时,小数点前面的0必须显示.例如0.0)
 * 输出参数:    无
 * 返 回 值:    无
 *******************************************************************************/
@@ -1064,7 +1064,7 @@ void ShowNumbers(unsigned int Value, int BitCount, int DecimalBitCount, int X_Of
     //-千-
     if ((QianValue == 0) && (WanValue == 0))
     {
-        if (FrontZeroDisplay != 0)
+        if (FrontZeroDisplay == 1)
         {
             LongCode[1] = QianValue + 0xA3B0;
         }
@@ -1081,7 +1081,7 @@ void ShowNumbers(unsigned int Value, int BitCount, int DecimalBitCount, int X_Of
     //-百-
     if ((BaiValue == 0) && (QianValue == 0) && (WanValue == 0))
     {
-        if (FrontZeroDisplay != 0)
+        if (FrontZeroDisplay == 1)
         {
             LongCode[2] = BaiValue + 0xA3B0;
         }
@@ -1098,7 +1098,7 @@ void ShowNumbers(unsigned int Value, int BitCount, int DecimalBitCount, int X_Of
     //-十-
     if ((ShiValue == 0) && (BaiValue == 0) && (QianValue == 0) && (WanValue == 0))
     {
-        if (FrontZeroDisplay != 0)
+        if (FrontZeroDisplay == 1)
         {
             LongCode[3] = ShiValue + 0xA3B0;
         }
@@ -1115,7 +1115,7 @@ void ShowNumbers(unsigned int Value, int BitCount, int DecimalBitCount, int X_Of
     //-个-
     LongCode[4] = GeValue + 0xA3B0;
 
-    if ((LongCode[3] != Space) || (LongCode[4] != 0xA3B0))
+    if (DecimalBitCount != 0)
     {
         DecimalIndex = 5 - DecimalBitCount;
         if (LongCode[DecimalIndex - 1] == Space)
@@ -1132,44 +1132,13 @@ void ShowNumbers(unsigned int Value, int BitCount, int DecimalBitCount, int X_Of
             LongCode[i + 1] = LongCode[i];
         }
 
-        if (DecimalBitCount == 0)
-        {
-            //-要判断显示的位数-
-            ShowBlock(&LongCode[5 - BitCount], BitCount, X_Offset);
-        }
-        else
-        {
-            if ((LongCode[3] == 0xA3B0) && (LongCode[4] == 0xA3B0))
-            {
-                if (FrontZeroDisplay == 2)
-                {
-                    for (i = 0; i < DecimalIndex - 1; i++)
-                    {
-                        if (LongCode[i] == 0xA3B0)
-                        {
-                            LongCode[i] = Space;
-                        }
-                    }
-                }
-            }
             LongCode[DecimalIndex] = 0xA3AE;    //-小数点-
-    
-            //-要判断显示的位数-
             ShowBlock(&LongCode[5 - BitCount], BitCount + 1, X_Offset);
         }
-    }
     else
     {
-        if (DecimalBitCount == 0)
-        {
             ShowBlock(&LongCode[5 - BitCount], BitCount, X_Offset);
         }
-        else
-        {
-            //-==0时,显示0,所以要去除小数点所占的位置-
-            ShowBlock(&LongCode[5 - BitCount], BitCount, X_Offset + 8);
-        }
-    }
 }
 
 
@@ -1511,6 +1480,11 @@ void NormalPage_Special0(const MenuStructure *pMenu, MenuPara *pMenuPara, int Li
     }
     else if (IsMoving == 1)
     {
+        if (Device.Para.CurrentDisplayEnable == CurrentDisplay_Disable)
+        {
+            return;
+        }
+
         LongCode[Index++] = 0x49;      //-I-
         LongCode[Index++] = 0x3D;      //-=-
         LongCode[Index++] = Space;
@@ -1525,11 +1499,11 @@ void NormalPage_Special0(const MenuStructure *pMenu, MenuPara *pMenuPara, int Li
         DisplayBufIndex += 16;
         if (Device.Para.CurrentDecimalBits == CurrentDecimalBits_Two)
         {
-            ShowNumbers(Valve.MiscInfo.Current, 3, 2, DisplayBufIndex, 2);
+            ShowNumbers(Valve.MiscInfo.Current, 3, 2, DisplayBufIndex, 0);
         }
         else
         {
-            ShowNumbers(Valve.MiscInfo.Current, 3, 1, DisplayBufIndex, 2);
+            ShowNumbers(Valve.MiscInfo.Current, 3, 1, DisplayBufIndex, 0);
         }
 
         LcdRefresh(LineIndex);
@@ -1994,7 +1968,7 @@ void NormalPage_Special3(const MenuStructure *pMenu, MenuPara *pMenuPara, int Li
         }
         else
         {
-            DisplayBufIndex = 32;
+            DisplayBufIndex = 48;
 
             //-Stop-
             LongCode[Index++] = 0x73;
@@ -3193,6 +3167,47 @@ void Password_DecKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
     }
 
     InputPassword[Index]--;
+}
+
+
+/*******************************************************************************
+* 函数名称:    
+* 函数功能:    
+* 输入参数:    
+* 输出参数:    无
+* 返 回 值:    无
+*******************************************************************************/
+void InternalPara_Current_Special(const MenuStructure *pMenu, MenuPara *pMenuPara, int LineIndex)
+{
+    if ((LineIndex != 4) && (LineIndex != 5))
+    {
+        return;
+    }
+
+    if (Device.Para.CurrentDisplayEnable == CurrentDisplay_Disable)
+    {
+        ClearBuf(&g_DisplayBuf[0], sizeof(g_DisplayBuf));
+        ShowReservedItem(0);
+    }
+}
+
+
+/*******************************************************************************
+* 函数名称:    
+* 函数功能:    
+* 输入参数:    
+* 输出参数:    无
+* 返 回 值:    无
+*******************************************************************************/
+void InternalPara_Current_SetKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
+{
+    if (Device.Para.CurrentDisplayEnable == CurrentDisplay_Disable)
+    {
+    }
+    else
+    {
+        StandardMenu_SetKey(pMenu, pMenuPara);
+    }
 }
 
 

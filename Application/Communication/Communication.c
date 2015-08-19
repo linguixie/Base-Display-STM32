@@ -766,17 +766,10 @@ void NormalFrameDeal(void)
     Device.Error.ErrorByte = RecvBuf[RecvBufIndex++];
     Valve.Error.ErrorByte = RecvBuf[RecvBufIndex++];
 
-    //-大于250则不显示当前电流-
-    if (RecvBuf[RecvBufIndex] > 250)
-    { 
-        Device.Para.CurrentDisplayEnable = CurrentDisplay_Disable;
-    }
-    else
-    {
-        Device.Para.CurrentDisplayEnable = CurrentDisplay_Enable;
+
+    //-当前电流-
         Valve.MiscInfo.Current = RecvBuf[RecvBufIndex++];
     }
-}
 
 
 /*******************************************************************************
@@ -956,6 +949,15 @@ void SettingFrameDeal(void)
 
     Device.Para.DeadZone = RecvBuf[RecvBufIndex++];
     Device.Para.MaxShutCurrent = RecvBuf[RecvBufIndex++];
+    if (Device.Para.MaxShutCurrent > 250)
+    { 
+        Device.Para.CurrentDisplayEnable = CurrentDisplay_Disable;
+    }
+    else
+    {
+        Device.Para.CurrentDisplayEnable = CurrentDisplay_Enable;
+    }
+
     Device.Para.MaxActionTime = RecvBuf[RecvBufIndex++];
     Device.Para.MaxOpenCurrent = RecvBuf[RecvBufIndex++];
 }

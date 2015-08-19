@@ -184,17 +184,11 @@ unsigned char KeyStateRead(int KeyIndex)
 void IRKeyMsgGet(unsigned char *pKey, unsigned char *Long_Short)
 {
     int i = 0; 
-    int j = 0;
 
     for (i = KeyOnBoard_Num; i < Key_Num; i++)
     {
         if ((1 == keyScanEn[i]) && (KeyActivationTime[i] >= LONG_KEY_TIME))
         {
-            if (i == Key_Set)
-            {
-                j++;
-            }
-
             KeyActivationTime[i] = 0;
             keyScanEn[i]         = 0;
           
@@ -208,10 +202,6 @@ void IRKeyMsgGet(unsigned char *pKey, unsigned char *Long_Short)
         else if ((1 == keyScanEn[i]) && (KeyStateRead(i) == KEY_UNPRESSED) 
                  && (KeyActivationTime[i] >= SHORT_KEY_TIME))
         {
-            if (i == Key_Set)
-            {
-                j++;
-            }
             KeyActivationTime[i] = 0;
             keyScanEn[i]         = 0;
           
@@ -226,10 +216,6 @@ void IRKeyMsgGet(unsigned char *pKey, unsigned char *Long_Short)
         //-¶¶¶¯-
         else if ((KeyStateRead(i) == KEY_UNPRESSED) && (KeyActivationTime[i] < SHORT_KEY_TIME))
         {
-            if (i == Key_Set)
-            {
-                j++;
-            }
             KeyActivationTime[i] = 0;
           
             pKey[i] = KEY_UNPRESSED;
