@@ -22,7 +22,7 @@
   </DaveTm>
 
   <Target>
-    <TargetName>Z-Display</TargetName>
+    <TargetName>Base-Display-STM32</TargetName>
     <ToolsetNumber>0x4</ToolsetNumber>
     <ToolsetName>ARM-ADS</ToolsetName>
     <TargetOption>

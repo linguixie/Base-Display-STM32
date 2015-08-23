@@ -196,8 +196,6 @@ void IRKeyMsgGet(unsigned char *pKey, unsigned char *Long_Short)
 
             pKey[i] = KEY_PRESSED;
             Long_Short[i] = LONG_KEY;
-    
-            UI_Buzz_Long();
         }
         else if ((1 == keyScanEn[i]) && (KeyStateRead(i) == KEY_UNPRESSED) 
                  && (KeyActivationTime[i] >= SHORT_KEY_TIME))
@@ -209,9 +207,6 @@ void IRKeyMsgGet(unsigned char *pKey, unsigned char *Long_Short)
 
             pKey[i] = KEY_PRESSED;
             Long_Short[i] = SHORT_KEY;
-
-            UI_Buzz_Short();
-
         }
         //-¶¶¶¯-
         else if ((KeyStateRead(i) == KEY_UNPRESSED) && (KeyActivationTime[i] < SHORT_KEY_TIME))
@@ -242,7 +237,6 @@ void IRKeyMsgGet(unsigned char *pKey, unsigned char *Long_Short)
                     if (IsTimeOut(DigitChangeTimer) == 1)
                 {
                         SetTimer(DigitChangeTimer, DigitChange_Delay);
-
                         pKey[i] = KEY_PRESSED;
                         Long_Short[i] = SHORT_KEY;
                 }
@@ -296,8 +290,6 @@ void KeyMsgGet(unsigned char *pKey, unsigned char *Long_Short)
 
             pKey[i] = KEY_PRESSED;
             Long_Short[i] = LONG_KEY;
-    
-            UI_Buzz_Long();
         }
         else if ((1 == keyScanEn[i]) && (KeyStateRead(i) == KEY_UNPRESSED) 
                  && (KeyActivationTime[i] >= SHORT_KEY_TIME))
@@ -309,9 +301,6 @@ void KeyMsgGet(unsigned char *pKey, unsigned char *Long_Short)
 
             pKey[i] = KEY_PRESSED;
             Long_Short[i] = SHORT_KEY;
-
-            UI_Buzz_Short();
-
         }
         //-¶¶¶¯-
         else if ((KeyStateRead(i) == KEY_UNPRESSED) && (KeyActivationTime[i] < SHORT_KEY_TIME))

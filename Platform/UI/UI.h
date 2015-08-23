@@ -50,6 +50,9 @@ extern "C" {
 #define Led_ShutLimit            (&LED[LED_SHUTLIMIT])
 #define Led_OpenLimit            (&LED[LED_OPENLIMIT])
  
+/*--*/
+#define UI_Led_Flash_Fast(LedIndex)    (UI_LED_FlashEver(LedIndex, 300, 300))
+#define UI_Led_Flash_Slow(LedIndex)    (UI_LED_FlashEver(LedIndex, 1000, 1000))
 
 /*--*/
 #define UI_Buzz_Long()           (UI_Buzz(500, 300, 1))

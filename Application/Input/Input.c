@@ -200,6 +200,7 @@ void OpenCheck(void)
                 }
                 if (--Count_H <= 0)
                 {
+                    UI_Buzz_Short();
                     Device.Input.LocalOpen = True;
                 }
 
@@ -248,6 +249,7 @@ void ShutCheck(void)
                 }
                 if (--Count_H <= 0)
                 {
+                    UI_Buzz_Short();
                     Device.Input.LocalShut = True;
                 }
 
@@ -374,10 +376,12 @@ void Task_Input(void)
             {
                 if (Valve.Status.StatusBits.Opening == 1)
                 {
+                    UI_Buzz_Short();
                     Valve.Operation.Operation = Operation_Shut;
                 }
                 else if (Valve.Status.StatusBits.Shutting == 1)
                 {
+                    UI_Buzz_Short();
                     Valve.Operation.Operation = Operation_Open;
                 }
                 else

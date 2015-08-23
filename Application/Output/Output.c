@@ -76,7 +76,7 @@ void AssistantOutput(void)
     {
         if (ValveStatusChanged == 1)
         {
-            UI_LED_FlashEver(Led_OpenLimit, 300, 300);
+            UI_Led_Flash_Slow(Led_OpenLimit);
             UI_LED_Off(Led_ShutLimit);
         }
     }
@@ -84,7 +84,7 @@ void AssistantOutput(void)
     {
         if (ValveStatusChanged == 1)
         {
-            UI_LED_FlashEver(Led_ShutLimit, 300, 300);
+            UI_Led_Flash_Slow(Led_ShutLimit);
             UI_LED_Off(Led_OpenLimit);
         }
     }

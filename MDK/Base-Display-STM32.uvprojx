@@ -7,7 +7,7 @@
 
   <Targets>
     <Target>
-      <TargetName>Z-Display</TargetName>
+      <TargetName>Base-Display-STM32</TargetName>
       <ToolsetNumber>0x4</ToolsetNumber>
       <ToolsetName>ARM-ADS</ToolsetName>
       <TargetOption>
@@ -47,7 +47,7 @@
             <InvalidFlash>1</InvalidFlash>
           </TargetStatus>
           <OutputDirectory>.\Objects\</OutputDirectory>
-          <OutputName>Z-Display</OutputName>
+          <OutputName>Base-Display-STM32</OutputName>
           <CreateExecutable>1</CreateExecutable>
           <CreateLib>0</CreateLib>
           <CreateHexFile>1</CreateHexFile>

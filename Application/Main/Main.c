@@ -120,8 +120,6 @@ static void PowerOnDeal(void)
 {
     SetTimer(PowerOnTimer, PowerOn_Delay);
     InsertTimer(&PowerOnTimer);
-
-    UI_Buzz(300, 300, 1);
 }
 
 

@@ -50,7 +50,8 @@ typedef enum
    VKey_Back,
    VKey_Up, 
    VKey_Down,
-   VKey_Num  
+   VKey_Num,
+   VKey_None  
 }VKey_TypeDef;
 
 /*******************************************************************************
@@ -3701,7 +3702,7 @@ void MaxActionTime_Special(const MenuStructure *pMenu, MenuPara *pMenuPara, int 
 
     if (LineIndex == 1)
     {
-        if (Device.Para.MaxActionTime < 5)
+        if (Device.Para.MaxActionTime > 250)
         {
             if (Device.Para.LanguageType == Language_CN)
             {
@@ -3781,14 +3782,14 @@ void MaxActionTime_SetKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
 *******************************************************************************/
 void MaxActionTime_IncKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
 {
-    //-·¶Î§:0¡¢[5~250]-
-    if (Device.Para.MaxActionTime == 0)
+    //-·¶Î§:251¡¢[5~250]-
+    if (Device.Para.MaxActionTime <= 5)
     {
-        Device.Para.MaxActionTime = 5;  
+        Device.Para.MaxActionTime = 6;  
     }
-    else if(Device.Para.MaxActionTime == 250)
+    else if(Device.Para.MaxActionTime >= 251)
     {
-        Device.Para.MaxActionTime = 0;
+        Device.Para.MaxActionTime = 5;
     }
     else
     {
@@ -3806,14 +3807,14 @@ void MaxActionTime_IncKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
 *******************************************************************************/
 void MaxActionTime_DecKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
 {
-    //-·¶Î§:0¡¢[5~250]-
-    if (Device.Para.MaxActionTime == 0)
+    //-·¶Î§:251¡¢[5~250]-
+    if (Device.Para.MaxActionTime <= 5)
     {
-        Device.Para.MaxActionTime = 250;  
+        Device.Para.MaxActionTime = 251;  
     }
-    else if(Device.Para.MaxActionTime == 5)
+    else if(Device.Para.MaxActionTime >= 251)
     {
-        Device.Para.MaxActionTime = 0;
+        Device.Para.MaxActionTime = 250;
     }
     else
     {
@@ -4026,6 +4027,8 @@ unsigned char KeyProc(const MenuStructure *pMenu, MenuPara *pMenuPara)
     int i = 0;
     unsigned char IsKeyPressed = 0;
     unsigned char KeyValid[VKey_Num] = {0};
+    static unsigned char PreIncKeyValid = 0;
+    static unsigned char PreDecKeyValid = 0;
 
     if ((Device.CurCommMode.CommModeBits.Local == 1) || (Device.CurCommMode.CommModeBits.Remote == 1))
     {
@@ -4037,10 +4040,12 @@ unsigned char KeyProc(const MenuStructure *pMenu, MenuPara *pMenuPara)
         {
             if ((KeyPressed[Key_Set] == KEY_PRESSED) && (PressedType[Key_Set] == LONG_KEY))
             {
+                UI_Buzz_Short();
                 EnterMenu(1);
             }
             else if ((KeyPressed[Key_Shut] == KEY_PRESSED) && (PressedType[Key_Shut] == LONG_KEY))
             {
+                UI_Buzz_Short();
                 EnterMenu(1);
             }
             else
@@ -4158,32 +4163,92 @@ unsigned char KeyProc(const MenuStructure *pMenu, MenuPara *pMenuPara)
     if (KeyValid[VKey_Set] == 1)
     {
         IsKeyPressed = 1;
-        pMenu[pMenuPara->RowIndex].SetKeyDeal(&pMenu[pMenuPara->RowIndex], pMenuPara);
+        if (pMenu[pMenuPara->RowIndex].SetKeyDeal != DummyFunction)
+        {
+            UI_Buzz_Short();
+            pMenu[pMenuPara->RowIndex].SetKeyDeal(&pMenu[pMenuPara->RowIndex], pMenuPara);
+        }
     }
     if (KeyValid[VKey_Back] == 1)
     {
         IsKeyPressed = 1;
-        StandardMenu_Back2Parent(pMenu, pMenuPara);
+        if (pMenu->ParentMenuID != InvalidMenuID)
+        {
+            UI_Buzz_Short();
+            StandardMenu_Back2Parent(pMenu, pMenuPara);
+        }
     }
     if (KeyValid[VKey_Up] == 1)
     {
         IsKeyPressed = 1;
-        pMenu[pMenuPara->RowIndex].UpKeyDeal(&pMenu[pMenuPara->RowIndex], pMenuPara);
+        if (pMenu[pMenuPara->RowIndex].UpKeyDeal != DummyFunction)
+        {
+            UI_Buzz_Short();
+            pMenu[pMenuPara->RowIndex].UpKeyDeal(&pMenu[pMenuPara->RowIndex], pMenuPara);
+        }
     }
     if (KeyValid[VKey_Down] == 1)
     {
         IsKeyPressed = 1;
-        pMenu[pMenuPara->RowIndex].DownKeyDeal(&pMenu[pMenuPara->RowIndex], pMenuPara);
+        if (pMenu[pMenuPara->RowIndex].DownKeyDeal != DummyFunction)
+        {
+            UI_Buzz_Short();
+            pMenu[pMenuPara->RowIndex].DownKeyDeal(&pMenu[pMenuPara->RowIndex], pMenuPara);
+        }
     }
     if (KeyValid[VKey_Inc] == 1)
     {
         IsKeyPressed = 1;
-        pMenu[pMenuPara->RowIndex].IncKeyDeal(&pMenu[pMenuPara->RowIndex], pMenuPara);
+        if (pMenu[pMenuPara->RowIndex].IncKeyDeal != DummyFunction)
+        {
+            if (pMenuPara->IsMultiplex != Multiplex_Digit)
+            {
+                if (Device.Flag.FlagBits.IsInLocalAdjust == 1)
+                {
+                    if (PreIncKeyValid != 1)
+                    {
+                        PreIncKeyValid = 1;
+                        UI_Buzz_Short();
+                    }
+                }
+                else
+                {
+                    UI_Buzz_Short();
+                }
+            }
+            pMenu[pMenuPara->RowIndex].IncKeyDeal(&pMenu[pMenuPara->RowIndex], pMenuPara);
+        }
+    }
+    else
+    {
+        PreIncKeyValid = 0;
     }
     if (KeyValid[VKey_Dec] == 1)
     {
         IsKeyPressed = 1;
-        pMenu[pMenuPara->RowIndex].DecKeyDeal(&pMenu[pMenuPara->RowIndex], pMenuPara);
+        if (pMenu[pMenuPara->RowIndex].DecKeyDeal != DummyFunction)
+        {
+            if (pMenuPara->IsMultiplex != Multiplex_Digit)
+            {
+                if (Device.Flag.FlagBits.IsInLocalAdjust == 1)
+                {
+                    if (PreDecKeyValid != 1)
+                    {
+                        PreDecKeyValid = 1;
+                        UI_Buzz_Short();
+                    }
+                }
+                else
+                {
+                    UI_Buzz_Short();
+                }
+            }
+            pMenu[pMenuPara->RowIndex].DecKeyDeal(&pMenu[pMenuPara->RowIndex], pMenuPara);
+        }
+    }
+    else
+    {
+        PreDecKeyValid = 0;
     }
 
     if ((IsKeyPressed == 1) || (Device.Flag.FlagBits.IsInLocalAdjust == 1))

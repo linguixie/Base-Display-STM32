@@ -43,7 +43,7 @@ typedef enum {Key_Remote, Key_Local, Key_Open, Key_Shut, KeyOnBoard_Num,
 
 //-按键时间与按键状态-
 #define LONG_KEY_TIME                   500         //-长按键时间 单位: KeyActivationTimeSet被调用的周期-
-#define SHORT_KEY_TIME                  10          //-短按键时间 单位: 同上-
+#define SHORT_KEY_TIME                  5           //-短按键时间 单位: 同上-
 #define Key_Pressed_Max_Time            25000       //-按键按下的最大时间 单位:同上-
 
 
