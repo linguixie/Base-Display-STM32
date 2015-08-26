@@ -191,7 +191,7 @@ void IRKeyMsgGet(unsigned char *pKey, unsigned char *Long_Short)
         {
             KeyActivationTime[i] = 0;
             keyScanEn[i]         = 0;
-          
+
             SetTimer(DigitChangeTimer, DigitChange_Delay);          
 
             pKey[i] = KEY_PRESSED;
@@ -235,16 +235,17 @@ void IRKeyMsgGet(unsigned char *pKey, unsigned char *Long_Short)
                 case Page_OpenCurrent_ID:
                 case Page_MaxActionTime_ID:
                     if (IsTimeOut(DigitChangeTimer) == 1)
-                {
+                    {
                         SetTimer(DigitChangeTimer, DigitChange_Delay);
                         pKey[i] = KEY_PRESSED;
                         Long_Short[i] = SHORT_KEY;
-                }
-                else
-                { 
-                    pKey[i] = KEY_UNPRESSED;
-                    Long_Short[i] = KEY_NONE;
-                }
+                    }
+                    else
+                    { 
+                        pKey[i] = KEY_UNPRESSED;
+                        Long_Short[i] = KEY_NONE;
+                        break;
+                    }
                     break;
 
                 default:
@@ -254,7 +255,7 @@ void IRKeyMsgGet(unsigned char *pKey, unsigned char *Long_Short)
                 }
             }
             else
-            { 
+            {
                 pKey[i] = KEY_UNPRESSED;
                 Long_Short[i] = KEY_NONE;
             }
@@ -329,7 +330,7 @@ void KeyMsgGet(unsigned char *pKey, unsigned char *Long_Short)
                         Long_Short[i] = SHORT_KEY;
                     }
                     else
-                {
+                    {
                         pKey[i] = KEY_UNPRESSED;
                         Long_Short[i] = KEY_NONE;
                     }

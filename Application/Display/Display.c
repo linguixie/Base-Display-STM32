@@ -1133,13 +1133,13 @@ void ShowNumbers(unsigned int Value, int BitCount, int DecimalBitCount, int X_Of
             LongCode[i + 1] = LongCode[i];
         }
 
-            LongCode[DecimalIndex] = 0xA3AE;    //-小数点-
-            ShowBlock(&LongCode[5 - BitCount], BitCount + 1, X_Offset);
-        }
+        LongCode[DecimalIndex] = 0xA3AE;    //-小数点-
+        ShowBlock(&LongCode[5 - BitCount], BitCount + 1, X_Offset);
+    }
     else
     {
-            ShowBlock(&LongCode[5 - BitCount], BitCount, X_Offset);
-        }
+        ShowBlock(&LongCode[5 - BitCount], BitCount, X_Offset);
+    }
 }
 
 
@@ -1440,7 +1440,7 @@ void NormalPage_Special0(const MenuStructure *pMenu, MenuPara *pMenuPara, int Li
             LongCode[Index++] = 0xCAD6;    //-手-
             LongCode[Index++] = 0xC2D6;    //-轮-
             LongCode[Index++] = 0xCAD6;    //-手-
-            LongCode[Index++] = 0xC2D6;    //-动-
+            LongCode[Index++] = 0xB6AF;    //-动-
         }
         else
         {
@@ -1840,7 +1840,7 @@ void NormalPage_Special3(const MenuStructure *pMenu, MenuPara *pMenuPara, int Li
     ClearLongCode();
     switch(Device.WorkMode.CurWorkMode)
     {
-    case 0:
+    case WorkMode_Bus:
         if (Device.Para.LanguageType == Language_CN)
         {
             LongCode[Index++] = 0xD4B6;    //-远-  
@@ -1864,7 +1864,7 @@ void NormalPage_Special3(const MenuStructure *pMenu, MenuPara *pMenuPara, int Li
             LongCode[Index++] = 0x73;
         }
         break;
-    case 1:
+    case WorkMode_RemoteAN:
         if ((Valve.Status.StatusBits.NoSignal == 1) && (Device.Para.RemoteANMode == RemoteANMode_NoSigKeep))
         {
             RemoteMode = Device.Para.RemoteIOMode;
@@ -1896,16 +1896,16 @@ void NormalPage_Special3(const MenuStructure *pMenu, MenuPara *pMenuPara, int Li
             }
         }
         break;
-    case 2:
+    case WorkMode_RemoteJog:
         RemoteMode = RemoteIOMode_Jog;
         break;
-    case 3:
+    case WorkMode_RemoteHold:
         RemoteMode = RemoteIOMode_Hold;
         break;
-    case 4:
+    case WorkMode_RemoteDibit:
         RemoteMode = RemoteIOMode_BiPos;
         break;
-    case 5:
+    case WorkMode_LocalJog:
         if (Device.Para.LanguageType == Language_CN)
         {
             LongCode[Index++] = 0xCFD6;    //-现-  
@@ -1932,7 +1932,7 @@ void NormalPage_Special3(const MenuStructure *pMenu, MenuPara *pMenuPara, int Li
             LongCode[Index++] = 0x67;
         }
         break;
-    case 6:
+    case WorkMode_LocalHold:
         if (Device.Para.LanguageType == Language_CN)
         {
             LongCode[Index++] = 0xCFD6;    //-现-  
@@ -1959,7 +1959,7 @@ void NormalPage_Special3(const MenuStructure *pMenu, MenuPara *pMenuPara, int Li
             LongCode[Index++] = 0x67;
         }
         break;
-    case 7:
+    case WorkMode_Stop:
         if (Device.Para.LanguageType == Language_CN)
         {
             LongCode[Index++] = 0xCDA3;    //-停-  
@@ -3782,14 +3782,10 @@ void MaxActionTime_SetKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
 *******************************************************************************/
 void MaxActionTime_IncKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
 {
-    //-范围:251、[5~250]-
-    if (Device.Para.MaxActionTime <= 5)
+    //-范围:251、[10~250]-
+    if (Device.Para.MaxActionTime >= 251)
     {
-        Device.Para.MaxActionTime = 6;  
-    }
-    else if(Device.Para.MaxActionTime >= 251)
-    {
-        Device.Para.MaxActionTime = 5;
+        Device.Para.MaxActionTime = 10;  
     }
     else
     {
@@ -3807,14 +3803,10 @@ void MaxActionTime_IncKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
 *******************************************************************************/
 void MaxActionTime_DecKey(const MenuStructure *pMenu, MenuPara *pMenuPara)
 {
-    //-范围:251、[5~250]-
-    if (Device.Para.MaxActionTime <= 5)
+    //-范围:251、[10~250]-
+    if (Device.Para.MaxActionTime <= 10)
     {
         Device.Para.MaxActionTime = 251;  
-    }
-    else if(Device.Para.MaxActionTime >= 251)
-    {
-        Device.Para.MaxActionTime = 250;
     }
     else
     {

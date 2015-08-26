@@ -43,6 +43,52 @@ signed long InputTimer = 0;
 * 输出参数:    无
 * 返 回 值:    无
 *******************************************************************************/
+void LanguageCheck(void)
+{
+    static signed char Count_H = 10;
+    static signed char Count_L = 10;
+
+    if(LanguageIOValid() == 1)        
+    {
+        Count_L = 10;
+
+        if (Device.Input.Language == True)
+        {
+            return;
+        }
+        if (--Count_H <= 0)
+        {
+            Device.Input.Language = True;
+
+            Device.Para.LanguageType = Language_EN;
+        }
+
+    }
+    else
+    {
+        Count_H = 10;
+
+        if (Device.Input.Language == False)
+        {
+            return;
+        }
+        if (--Count_L <= 0)
+        {
+            Device.Input.Language = False;
+
+            Device.Para.LanguageType = Language_CN;
+        }
+    }
+}
+
+
+/*******************************************************************************
+* 函数名称:    
+* 函数功能:    
+* 输入参数:    
+* 输出参数:    无
+* 返 回 值:    无
+*******************************************************************************/
 void LocalCheck(void)
 {
     static signed char Count_H = 10;
@@ -77,7 +123,7 @@ void LocalCheck(void)
                 case Page_ShutCurrent_ID:
                 case Page_OpenCurrent_ID:
                 case Page_MaxActionTime_ID:
-                
+
                     Device.Flag.FlagBits.IsInDigitAdjust = 1;
                     Device.Flag.FlagBits.IsInLocalAdjust = 1;
                     break;
@@ -354,10 +400,13 @@ void Task_Input(void)
     switch(Count++)
     {
     case 0:
-        LocalCheck();        //-必须首先判断现场还是远程-
-        RemoteCheck();
+        LanguageCheck();        //-必须首先判断现场还是远程-
         break;
     case 1:
+        LocalCheck();        
+        RemoteCheck();
+        break;
+    case 2:
         OpenCheck();
         ShutCheck();
         StopCheck();

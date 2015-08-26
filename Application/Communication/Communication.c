@@ -679,9 +679,9 @@ void NormalFrameDeal(void)
     }
     RecvBufIndex++;
 
-    Device.WorkMode.CurWorkMode = 0x00;
+    Device.WorkMode.CurWorkMode = WorkMode_None;
     Device.CurCommMode.CommModeBits.Bus = 0;
-    switch(RecvBuf[RecvBufIndex])
+    switch(RecvBuf[RecvBufIndex] & 0x07)
     {
     case 0x00:
         Device.CurCommMode.CommModeBits.Bus = 1;
@@ -768,8 +768,8 @@ void NormalFrameDeal(void)
 
 
     //-当前电流-
-        Valve.MiscInfo.Current = RecvBuf[RecvBufIndex++];
-    }
+    Valve.MiscInfo.Current = RecvBuf[RecvBufIndex++];
+}
 
 
 /*******************************************************************************

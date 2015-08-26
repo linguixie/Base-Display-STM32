@@ -127,17 +127,14 @@ void ValveInit(void)
     Device.Status.ESDStatus                      = ESDStatus_Invalid;
 
     //-和面板交互的参数可以不初始化,因为在读取EEPROM时会初始化-
-#if USE_Chinese
     Device.Para.LanguageType                     = Language_CN;
-#else
-    Device.Para.LanguageType                     = Language_EN;
-#endif
     Device.Para.RemoteType                       = RemoteType_Regulate;
     Device.Para.ESDDisplayEnable                 = ESDDisplay_Disable;
     Device.Para.CurrentDisplayEnable             = CurrentDisplay_Disable;
     Device.Para.CurrentDecimalBits               = CurrentDecimalBits_One;
     Device.Para.MaxActionTime                    = 0;
 
+    Device.Input.Language                        = Input_Invalid;
     Device.Input.Remote                          = Input_Invalid;
     Device.Input.Local                           = Input_Invalid;
     Device.Input.LocalOpen                       = Input_Invalid;

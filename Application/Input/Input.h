@@ -30,7 +30,7 @@ extern "C" {
 #define IO_High    1
 #define IO_Low     0
 
-
+#define LanguageIOValid()          (LanguageSelectGet() == 0)
 
 /*******************************************************************************
 *                                  全局函数(变量)声明

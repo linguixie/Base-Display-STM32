@@ -127,6 +127,13 @@ void GpioInit(void)
     GPIO_Init(Key_Port, &GPIO_InitStructure);
 
 
+    /*-Language Select-*/
+    GPIO_InitStructure.GPIO_Pin  = LanguageSelect_Pin ;
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN;
+    GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_UP ; 
+    GPIO_Init(LanguageSelect_Port, &GPIO_InitStructure);
+
+
     /*-LED-*/
     //-OpenLimit-
     GPIO_InitStructure.GPIO_Pin   = Led_OpenLimit_Pin ;

@@ -534,6 +534,9 @@ typedef struct
 //-阀门的输入结构体:保存阀门的输入-
 typedef struct Input
 {
+    //-语言选择-
+    unsigned char Language;
+
     //-现场/远程-
     unsigned char Remote;
     unsigned char Local;
